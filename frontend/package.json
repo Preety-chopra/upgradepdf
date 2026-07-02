@@ -1,0 +1,20 @@
+{
+  "name": "pdf-utility-platform-frontend",
+  "version": "0.4.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0 --port 5173",
+    "build": "vite build",
+    "preview": "vite preview --host 0.0.0.0 --port 4173"
+  },
+  "dependencies": {
+    "@vitejs/plugin-vue": "^6.0.1",
+    "axios": "^1.7.9",
+    "pdfjs-dist": "^5.4.296",
+    "vite": "^7.0.0",
+    "vue": "^3.5.13",
+    "vue-router": "^4.5.0"
+  },
+  "devDependencies": {}
+}

@@ -1,0 +1,353 @@
+<template>
+  <section class="tool-page">
+    <RouterLink to="/" class="back-link">← Back to tools</RouterLink>
+
+    <div class="tool-layout">
+      <div class="tool-panel">
+        <p class="eyebrow">PDF tool</p>
+        <h1>{{ config.title }}</h1>
+        <p class="tool-description">
+          {{ config.description }}
+        </p>
+
+        <div class="privacy-note">
+          Your files are processed in a secure, isolated environment and deleted
+          automatically after 60 minutes.
+        </div>
+
+        <FileDropzone
+          :multiple="config.multiple"
+          @files-selected="handleFilesSelected"
+        />
+
+        <div v-if="showPreview" class="preview-area">
+          <PdfPreview
+            :file="previewFile"
+            :selectable="isPageSelectionTool"
+            v-model="selectedPagesFromPreview"
+            @page-count="handlePageCount"
+          />
+        </div>
+
+        <div v-if="tool === 'split' || tool === 'delete-pages'" class="form-group">
+          <label for="pages">Pages</label>
+          <input
+            id="pages"
+            v-model="pages"
+            type="text"
+            placeholder="Example: 1-3 or 1,4,6"
+          />
+          <small>
+            You can type pages manually or select pages from the preview.
+          </small>
+        </div>
+
+        <div v-if="tool === 'rotate'" class="form-group">
+          <label for="rotate-pages">Pages</label>
+          <input
+            id="rotate-pages"
+            v-model="pages"
+            type="text"
+            placeholder="all or 1,3,5"
+          />
+          <small>
+            Use "all", type selected pages manually, or select pages from the preview.
+          </small>
+        </div>
+
+        <div v-if="tool === 'rotate'" class="form-group">
+          <label for="angle">Rotation angle</label>
+          <select id="angle" v-model="angle">
+            <option value="90">90 degrees</option>
+            <option value="180">180 degrees</option>
+            <option value="270">270 degrees</option>
+            <option value="-90">-90 degrees</option>
+          </select>
+        </div>
+
+        <div v-if="pageCount" class="page-count-note">
+          Detected {{ pageCount }} page{{ pageCount > 1 ? "s" : "" }} in this PDF.
+        </div>
+
+        <div v-if="uploadProgress > 0 && uploadProgress < 100" class="progress-wrap">
+          <div class="progress-label">
+            <span>Uploading</span>
+            <span>{{ uploadProgress }}%</span>
+          </div>
+          <div class="progress-track">
+            <div class="progress-bar" :style="{ width: `${uploadProgress}%` }"></div>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          class="primary-btn full-width"
+          :disabled="isSubmitDisabled"
+          @click="submitTool"
+        >
+          {{ isSubmitting ? "Uploading..." : config.buttonText }}
+        </button>
+
+        <p v-if="errorMessage" class="error-box">
+          {{ errorMessage }}
+        </p>
+      </div>
+
+      <div class="result-panel">
+        <JobStatus :job="job" />
+
+        <div v-if="!job" class="empty-result">
+          <h3>No job started yet</h3>
+          <p>
+            Upload your PDF file, preview pages, start processing, and the result
+            will appear here.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+</template>
+
+<script setup>
+import { computed, onBeforeUnmount, ref, watch } from "vue";
+import { useRoute, useRouter } from "vue-router";
+
+import FileDropzone from "../components/FileDropzone.vue";
+import JobStatus from "../components/JobStatus.vue";
+import PdfPreview from "../components/PdfPreview.vue";
+import {
+  getJob,
+  submitDeletePages,
+  submitMerge,
+  submitRotate,
+  submitSplit
+} from "../services/api";
+
+const route = useRoute();
+const router = useRouter();
+
+const files = ref([]);
+const pages = ref("");
+const selectedPagesFromPreview = ref("");
+const angle = ref("90");
+const isSubmitting = ref(false);
+const uploadProgress = ref(0);
+const errorMessage = ref("");
+const job = ref(null);
+const pollingTimer = ref(null);
+const pageCount = ref(0);
+
+const tool = computed(() => route.params.tool);
+
+const toolConfigs = {
+  merge: {
+    title: "Merge PDF",
+    description: "Combine two or more PDF files into a single PDF document.",
+    multiple: true,
+    buttonText: "Merge PDF"
+  },
+  split: {
+    title: "Split PDF",
+    description: "Extract selected pages and save them as a new PDF.",
+    multiple: false,
+    buttonText: "Split PDF"
+  },
+  rotate: {
+    title: "Rotate PDF",
+    description: "Rotate all pages or selected pages by a chosen angle.",
+    multiple: false,
+    buttonText: "Rotate PDF"
+  },
+  "delete-pages": {
+    title: "Delete Pages",
+    description: "Remove selected pages and download the remaining PDF.",
+    multiple: false,
+    buttonText: "Delete Pages"
+  }
+};
+
+const config = computed(() => {
+  return toolConfigs[tool.value] || toolConfigs.merge;
+});
+
+const previewFile = computed(() => {
+  if (!files.value.length) {
+    return null;
+  }
+
+  return files.value[0];
+});
+
+const showPreview = computed(() => {
+  return Boolean(previewFile.value);
+});
+
+const isPageSelectionTool = computed(() => {
+  return ["split", "rotate", "delete-pages"].includes(tool.value);
+});
+
+const isSubmitDisabled = computed(() => {
+  if (isSubmitting.value) {
+    return true;
+  }
+
+  if (tool.value === "merge") {
+    return files.value.length < 2;
+  }
+
+  if (["split", "delete-pages"].includes(tool.value)) {
+    return files.value.length < 1 || !pages.value.trim();
+  }
+
+  if (tool.value === "rotate") {
+    return files.value.length < 1 || !pages.value.trim() || !angle.value;
+  }
+
+  return true;
+});
+
+watch(
+  () => route.params.tool,
+  (newTool) => {
+    if (!toolConfigs[newTool]) {
+      router.replace("/");
+      return;
+    }
+
+    resetStateForTool(newTool);
+  },
+  { immediate: true }
+);
+
+watch(selectedPagesFromPreview, (value) => {
+  if (!value) {
+    return;
+  }
+
+  pages.value = value;
+});
+
+onBeforeUnmount(() => {
+  stopPolling();
+});
+
+function resetStateForTool(newTool) {
+  files.value = [];
+  job.value = null;
+  errorMessage.value = "";
+  uploadProgress.value = 0;
+  angle.value = "90";
+  selectedPagesFromPreview.value = "";
+  pageCount.value = 0;
+  pages.value = newTool === "rotate" ? "all" : "";
+  stopPolling();
+}
+
+function handleFilesSelected(selectedFiles) {
+  files.value = selectedFiles;
+  errorMessage.value = "";
+  job.value = null;
+  selectedPagesFromPreview.value = "";
+  pageCount.value = 0;
+
+  if (tool.value === "rotate") {
+    pages.value = "all";
+  } else {
+    pages.value = "";
+  }
+}
+
+function handlePageCount(count) {
+  pageCount.value = count;
+}
+
+function handleUploadProgress(progressEvent) {
+  if (!progressEvent.total) {
+    return;
+  }
+
+  uploadProgress.value = Math.round(
+    (progressEvent.loaded * 100) / progressEvent.total
+  );
+}
+
+async function submitTool() {
+  errorMessage.value = "";
+  isSubmitting.value = true;
+  uploadProgress.value = 0;
+  job.value = null;
+
+  try {
+    let response;
+
+    if (tool.value === "merge") {
+      response = await submitMerge(files.value, handleUploadProgress);
+    }
+
+    if (tool.value === "split") {
+      response = await submitSplit(files.value[0], pages.value, handleUploadProgress);
+    }
+
+    if (tool.value === "rotate") {
+      response = await submitRotate(
+        files.value[0],
+        pages.value || "all",
+        Number(angle.value),
+        handleUploadProgress
+      );
+    }
+
+    if (tool.value === "delete-pages") {
+      response = await submitDeletePages(
+        files.value[0],
+        pages.value,
+        handleUploadProgress
+      );
+    }
+
+    uploadProgress.value = 100;
+
+    if (!response?.job_id) {
+      throw new Error("Job ID not received from server.");
+    }
+
+    await loadJob(response.job_id);
+    startPolling(response.job_id);
+  } catch (error) {
+    errorMessage.value =
+      error?.response?.data?.detail ||
+      error?.message ||
+      "Something went wrong while processing your PDF.";
+  } finally {
+    isSubmitting.value = false;
+  }
+}
+
+async function loadJob(jobId) {
+  job.value = await getJob(jobId);
+}
+
+function startPolling(jobId) {
+  stopPolling();
+
+  pollingTimer.value = window.setInterval(async () => {
+    try {
+      await loadJob(jobId);
+
+      if (["completed", "failed", "purged"].includes(job.value?.status)) {
+        stopPolling();
+      }
+    } catch (error) {
+      stopPolling();
+      errorMessage.value = "Could not refresh job status.";
+    }
+  }, 2000);
+}
+
+function stopPolling() {
+  if (pollingTimer.value) {
+    window.clearInterval(pollingTimer.value);
+    pollingTimer.value = null;
+  }
+}
+</script>
