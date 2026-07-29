@@ -19,6 +19,9 @@ class JobResponse(BaseModel):
     completed_at: Optional[datetime]
     purged_at: Optional[datetime]
     download_url: Optional[str] = None
+    input_size_bytes: Optional[int] = None
+    output_size_bytes: Optional[int] = None
+    savings_percent: Optional[float] = None
 
     class Config:
         from_attributes = True

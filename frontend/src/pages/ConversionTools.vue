@@ -116,7 +116,8 @@
 </template>
 
 <script setup>
-import { computed, ref } from 'vue';
+import { ref, computed, onMounted } from "vue";
+import { useRoute } from "vue-router";
 
 const API_BASE = (
   import.meta.env.VITE_API_BASE_URL ||
@@ -217,6 +218,24 @@ const tools = [
     defaultName: 'tables.csv'
   }
 ];
+
+const allowedTypes = [
+  "pdf-to-jpg",
+  "images-to-pdf",
+  "word-to-pdf",
+  "excel-to-pdf",
+  "pdf-to-word",
+  "pdf-to-data-xlsx",
+  "pdf-to-data-csv"
+];
+
+onMounted(() => {
+  const typeFromDashboard = route.query.type;
+
+  if (allowedTypes.includes(typeFromDashboard)) {
+    conversionType.value = typeFromDashboard;
+  }
+});
 
 const selectedKey = ref('pdf-to-jpg');
 const files = ref([]);

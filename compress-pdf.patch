@@ -1,0 +1,687 @@
+diff --git a/backend/app/api/routes/jobs.py b/backend/app/api/routes/jobs.py
+index 6a44a3f..87c2014 100644
+--- a/backend/app/api/routes/jobs.py
++++ b/backend/app/api/routes/jobs.py
+@@ -1,8 +1,11 @@
++from pathlib import Path
++
+ from fastapi import APIRouter, Depends, HTTPException
+ from sqlalchemy.orm import Session
+ 
++from app.core.config import settings
+ from app.core.database import get_db
+-from app.models.job import JobStatus
++from app.models.job import JobOperation
+ from app.schemas.job import JobResponse
+ from app.services.job_service import build_download_url, get_job_by_id, purge_expired_jobs
+ 
+@@ -25,6 +28,31 @@ def get_job_status(
+     response = JobResponse.model_validate(job)
+     response.download_url = build_download_url(job)
+ 
++    if job.operation == JobOperation.COMPRESS:
++        input_path = Path(settings.UPLOAD_DIR) / job.id / "input.pdf"
++        output_path = (
++            Path(settings.OUTPUT_DIR) / job.id / job.output_filename
++            if job.output_filename
++            else None
++        )
++
++        if input_path.exists():
++            response.input_size_bytes = input_path.stat().st_size
++
++        if output_path and output_path.exists():
++            response.output_size_bytes = output_path.stat().st_size
++
++        if response.input_size_bytes and response.output_size_bytes is not None:
++            response.savings_percent = round(
++                max(
++                    0,
++                    (response.input_size_bytes - response.output_size_bytes)
++                    / response.input_size_bytes
++                    * 100,
++                ),
++                1,
++            )
++
+     return response
+ 
+ 
+diff --git a/backend/app/api/routes/pdf.py b/backend/app/api/routes/pdf.py
+index 801488d..4ce4caf 100644
+--- a/backend/app/api/routes/pdf.py
++++ b/backend/app/api/routes/pdf.py
+@@ -1,4 +1,4 @@
+-from typing import List
++from typing import List, Literal
+ 
+ from fastapi import APIRouter, Depends, File, Form, UploadFile
+ from sqlalchemy.orm import Session
+@@ -12,6 +12,7 @@ from app.services.file_service import (
+ )
+ from app.services.job_service import create_job, set_task_id
+ from app.workers.tasks import (
++    compress_pdf_task,
+     delete_pages_pdf_task,
+     merge_pdf_task,
+     rotate_pdf_task,
+@@ -21,6 +22,36 @@ from app.workers.tasks import (
+ router = APIRouter()
+ 
+ 
++@router.post("/compress")
++async def compress_pdf_api(
++    file: UploadFile = File(...),
++    quality: Literal["light", "balanced", "strong"] = Form("balanced"),
++    db: Session = Depends(get_db),
++):
++    job_id = create_job_id()
++
++    await save_uploaded_pdf(file=file, job_id=job_id)
++
++    create_job(
++        db=db,
++        job_id=job_id,
++        operation=JobOperation.COMPRESS,
++        input_filename=file.filename,
++    )
++
++    task = compress_pdf_task.delay(job_id, quality)
++    set_task_id(db=db, job_id=job_id, task_id=task.id)
++
++    return {
++        "message": "Compression job started.",
++        "job_id": job_id,
++        "task_id": task.id,
++        "quality": quality,
++        "job_status_url": f"/api/jobs/{job_id}",
++        "task_status_url": f"/api/files/status/{task.id}",
++    }
++
++
+ @router.post("/merge")
+ async def merge_pdf(
+     files: List[UploadFile] = File(...),
+diff --git a/backend/app/main.py b/backend/app/main.py
+index f386f91..3c64900 100644
+--- a/backend/app/main.py
++++ b/backend/app/main.py
+@@ -1,5 +1,6 @@
+ ﻿from fastapi import FastAPI
+ from fastapi.middleware.cors import CORSMiddleware
++from sqlalchemy import text
+ 
+ from app.api.routes import files, health, jobs, pdf
+ from app.core.config import settings
+@@ -9,10 +10,18 @@ from app.modules.ocr.routes import router as ocr_router
+ 
+ Base.metadata.create_all(bind=engine)
+ 
++# create_all does not extend an existing PostgreSQL enum. Keep upgrades from
++# earlier releases compatible with the compression operation.
++if engine.dialect.name == "postgresql":
++    with engine.begin() as connection:
++        connection.execute(
++            text("ALTER TYPE joboperation ADD VALUE IF NOT EXISTS 'COMPRESS'")
++        )
++
+ 
+ app = FastAPI(
+     title=settings.PROJECT_NAME,
+-    version="0.3.0",
++    version="0.4.0",
+     description="Secure PDF utility platform backend",
+ )
+ 
+@@ -36,5 +45,5 @@ def root():
+     return {
+         "message": "PDF Utility Platform API is running",
+         "docs": "/docs",
+-        "version": "0.3.0",
++        "version": "0.4.0",
+     }
+diff --git a/backend/app/models/job.py b/backend/app/models/job.py
+index 29a4431..1d979d5 100644
+--- a/backend/app/models/job.py
++++ b/backend/app/models/job.py
+@@ -21,6 +21,7 @@ class JobOperation(str, Enum):
+     SPLIT = "split"
+     ROTATE = "rotate"
+     DELETE_PAGES = "delete_pages"
++    COMPRESS = "compress"
+ 
+ 
+ class Job(Base):
+diff --git a/backend/app/schemas/job.py b/backend/app/schemas/job.py
+index 82f7809..1c18b3b 100644
+--- a/backend/app/schemas/job.py
++++ b/backend/app/schemas/job.py
+@@ -19,6 +19,9 @@ class JobResponse(BaseModel):
+     completed_at: Optional[datetime]
+     purged_at: Optional[datetime]
+     download_url: Optional[str] = None
++    input_size_bytes: Optional[int] = None
++    output_size_bytes: Optional[int] = None
++    savings_percent: Optional[float] = None
+ 
+     class Config:
+         from_attributes = True
+\ No newline at end of file
+diff --git a/backend/app/services/pdf_service.py b/backend/app/services/pdf_service.py
+index 6122aee..7b4843d 100644
+--- a/backend/app/services/pdf_service.py
++++ b/backend/app/services/pdf_service.py
+@@ -1,7 +1,17 @@
++import io
++import shutil
+ from pathlib import Path
+-from typing import List, Set
++from typing import Dict, List, Set
+ 
+ import fitz  # PyMuPDF
++from PIL import Image
++
++
++COMPRESSION_PROFILES: Dict[str, dict] = {
++    "light": {"max_dimension": 2400, "jpeg_quality": 84},
++    "balanced": {"max_dimension": 1800, "jpeg_quality": 72},
++    "strong": {"max_dimension": 1200, "jpeg_quality": 55},
++}
+ 
+ 
+ def _validate_pdf_path(path: Path) -> None:
+@@ -12,6 +22,129 @@ def _validate_pdf_path(path: Path) -> None:
+         raise ValueError("Only PDF files are allowed.")
+ 
+ 
++def _encode_compressed_image(
++    image_bytes: bytes,
++    max_dimension: int,
++    jpeg_quality: int,
++) -> bytes | None:
++    """Downsample and encode an embedded image without changing page content."""
++
++    try:
++        with Image.open(io.BytesIO(image_bytes)) as image:
++            image.load()
++
++            largest_dimension = max(image.size)
++            if largest_dimension > max_dimension:
++                scale = max_dimension / largest_dimension
++                image = image.resize(
++                    (
++                        max(1, round(image.width * scale)),
++                        max(1, round(image.height * scale)),
++                    ),
++                    Image.Resampling.LANCZOS,
++                )
++
++            has_alpha = image.mode in {"RGBA", "LA"} or (
++                image.mode == "P" and "transparency" in image.info
++            )
++            output = io.BytesIO()
++
++            if has_alpha:
++                image.save(output, format="PNG", optimize=True)
++            else:
++                if image.mode not in {"RGB", "L"}:
++                    image = image.convert("RGB")
++                image.save(
++                    output,
++                    format="JPEG",
++                    quality=jpeg_quality,
++                    optimize=True,
++                    progressive=True,
++                )
++
++            candidate = output.getvalue()
++            if len(candidate) >= len(image_bytes) * 0.95:
++                return None
++
++            return candidate
++    except (OSError, ValueError):
++        # Unsupported image encodings are left untouched. Document-level
++        # cleanup can still compress their streams.
++        return None
++
++
++def compress_pdf(input_path: Path, output_path: Path, quality: str) -> Path:
++    """Compress a PDF while preserving text, links, forms, and vectors."""
++
++    _validate_pdf_path(input_path)
++
++    if quality not in COMPRESSION_PROFILES:
++        raise ValueError("Quality must be one of: light, balanced, strong.")
++
++    profile = COMPRESSION_PROFILES[quality]
++    output_path.parent.mkdir(parents=True, exist_ok=True)
++    working_path = output_path.with_suffix(".working.pdf")
++
++    try:
++        with fitz.open(input_path) as doc:
++            if doc.needs_pass:
++                raise ValueError(
++                    "Password-protected PDFs are not supported for compression."
++                )
++
++            if doc.page_count < 1:
++                raise ValueError("The PDF does not contain any pages.")
++
++            image_pages: Dict[int, int] = {}
++            for page_number in range(doc.page_count):
++                for image in doc.get_page_images(page_number, full=True):
++                    xref, soft_mask_xref = image[0], image[1]
++                    # Resizing an image independently from its soft mask can
++                    # corrupt transparency, so those images are preserved.
++                    if xref > 0 and soft_mask_xref == 0:
++                        image_pages.setdefault(xref, page_number)
++
++            for xref, page_number in image_pages.items():
++                extracted = doc.extract_image(xref)
++                original = extracted.get("image")
++                if not original:
++                    continue
++
++                replacement = _encode_compressed_image(
++                    original,
++                    max_dimension=profile["max_dimension"],
++                    jpeg_quality=profile["jpeg_quality"],
++                )
++                if replacement:
++                    page = doc.load_page(page_number)
++                    page.replace_image(xref, stream=replacement)
++
++            doc.save(
++                working_path,
++                garbage=4,
++                clean=True,
++                deflate=True,
++                deflate_images=True,
++                deflate_fonts=True,
++                use_objstms=1,
++            )
++
++        if working_path.stat().st_size < input_path.stat().st_size:
++            working_path.replace(output_path)
++        else:
++            shutil.copy2(input_path, output_path)
++            working_path.unlink(missing_ok=True)
++
++        # Reopen the artifact so corrupt output is never marked successful.
++        with fitz.open(output_path) as result:
++            if result.page_count < 1:
++                raise ValueError("Compression produced an invalid PDF.")
++
++        return output_path
++    finally:
++        working_path.unlink(missing_ok=True)
++
++
+ def _parse_pages(pages: str, total_pages: int) -> List[int]:
+     """
+     Converts user page input into zero-based page indexes.
+diff --git a/backend/app/workers/tasks.py b/backend/app/workers/tasks.py
+index 7398585..7e8558b 100644
+--- a/backend/app/workers/tasks.py
++++ b/backend/app/workers/tasks.py
+@@ -8,6 +8,7 @@ from app.services.job_service import (
+     purge_expired_jobs,
+ )
+ from app.services.pdf_service import (
++    compress_pdf,
+     delete_pages,
+     extract_pages,
+     merge_pdfs,
+@@ -16,6 +17,44 @@ from app.services.pdf_service import (
+ from app.workers.celery_app import celery_app
+ 
+ 
++@celery_app.task(name="compress_pdf_task")
++def compress_pdf_task(job_id: str, quality: str):
++    try:
++        mark_job_processing(job_id)
++
++        input_path = Path(settings.UPLOAD_DIR) / job_id / "input.pdf"
++        output_path = Path(settings.OUTPUT_DIR) / job_id / "compressed.pdf"
++
++        result_path = compress_pdf(
++            input_path=input_path,
++            output_path=output_path,
++            quality=quality,
++        )
++
++        mark_job_completed(job_id=job_id, output_filename=result_path.name)
++
++        input_size = input_path.stat().st_size
++        output_size = result_path.stat().st_size
++
++        return {
++            "job_id": job_id,
++            "status": "completed",
++            "operation": "compress",
++            "quality": quality,
++            "filename": result_path.name,
++            "input_size_bytes": input_size,
++            "output_size_bytes": output_size,
++            "savings_percent": round(
++                max(0, (input_size - output_size) / input_size * 100), 1
++            ),
++            "download_url": f"/api/files/download/{job_id}/{result_path.name}",
++        }
++
++    except Exception as exc:
++        mark_job_failed(job_id=job_id, error_message=str(exc))
++        raise
++
++
+ @celery_app.task(name="merge_pdf_task")
+ def merge_pdf_task(job_id: str):
+     try:
+diff --git a/frontend/src/assets/main.css b/frontend/src/assets/main.css
+index 1492467..fa76ef9 100644
+--- a/frontend/src/assets/main.css
++++ b/frontend/src/assets/main.css
+@@ -416,6 +416,52 @@ h3 {
+   color: var(--muted);
+ }
+ 
++.compression-options {
++  display: grid;
++  gap: 10px;
++  margin: 0 0 20px;
++  padding: 0;
++  border: 0;
++}
++
++.compression-options legend {
++  margin-bottom: 10px;
++  font-weight: 800;
++}
++
++.compression-option {
++  display: flex;
++  align-items: flex-start;
++  gap: 12px;
++  padding: 14px;
++  border: 1px solid var(--border);
++  border-radius: 16px;
++  background: white;
++  cursor: pointer;
++}
++
++.compression-option.selected {
++  border-color: var(--primary);
++  background: #fff5f5;
++  box-shadow: 0 0 0 3px rgba(229, 50, 45, 0.1);
++}
++
++.compression-option input {
++  margin-top: 4px;
++  accent-color: var(--primary);
++}
++
++.compression-option strong,
++.compression-option small {
++  display: block;
++}
++
++.compression-option small {
++  margin-top: 4px;
++  color: var(--muted);
++  line-height: 1.4;
++}
++
+ .progress-wrap {
+   margin: 18px 0;
+ }
+diff --git a/frontend/src/components/JobStatus.vue b/frontend/src/components/JobStatus.vue
+index ef7e921..dcaa0e3 100644
+--- a/frontend/src/components/JobStatus.vue
++++ b/frontend/src/components/JobStatus.vue
+@@ -31,6 +31,27 @@
+         <small>Output</small>
+         <p>{{ job.output_filename }}</p>
+       </div>
++
++      <div v-if="job.operation === 'compress' && job.input_size_bytes != null">
++        <small>Original size</small>
++        <p>{{ formatSize(job.input_size_bytes) }}</p>
++      </div>
++
++      <div v-if="job.operation === 'compress' && job.output_size_bytes != null">
++        <small>Compressed size</small>
++        <p>{{ formatSize(job.output_size_bytes) }}</p>
++      </div>
++
++      <div
++        v-if="
++          job.operation === 'compress' &&
++          job.savings_percent !== null &&
++          job.savings_percent !== undefined
++        "
++      >
++        <small>Space saved</small>
++        <p>{{ job.savings_percent }}%</p>
++      </div>
+     </div>
+ 
+     <p v-if="job.error_message" class="error-box">
+@@ -95,4 +116,16 @@ function formatDate(value) {
+ 
+   return new Date(value).toLocaleString();
+ }
++
++function formatSize(bytes) {
++  if (bytes === null || bytes === undefined) {
++    return "-";
++  }
++
++  if (bytes < 1024 * 1024) {
++    return `${(bytes / 1024).toFixed(1)} KB`;
++  }
++
++  return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
++}
+ </script>
+\ No newline at end of file
+diff --git a/frontend/src/services/api.js b/frontend/src/services/api.js
+index 70caf47..1b18619 100644
+--- a/frontend/src/services/api.js
++++ b/frontend/src/services/api.js
+@@ -42,6 +42,22 @@ export async function submitMerge(files, onUploadProgress) {
+   return response.data;
+ }
+ 
++export async function submitCompress(file, quality, onUploadProgress) {
++  const formData = new FormData();
++
++  formData.append("file", file);
++  formData.append("quality", quality);
++
++  const response = await apiClient.post("/api/pdf/compress", formData, {
++    headers: {
++      "Content-Type": "multipart/form-data"
++    },
++    onUploadProgress
++  });
++
++  return response.data;
++}
++
+ export async function submitSplit(file, pages, onUploadProgress) {
+   const formData = new FormData();
+ 
+diff --git a/frontend/src/views/PdfToolView.vue b/frontend/src/views/PdfToolView.vue
+index 2879393..bcfbda0 100644
+--- a/frontend/src/views/PdfToolView.vue
++++ b/frontend/src/views/PdfToolView.vue
+@@ -65,6 +65,23 @@
+           </select>
+         </div>
+ 
++        <fieldset v-if="tool === 'compress'" class="compression-options">
++          <legend>Compression level</legend>
++
++          <label
++            v-for="option in compressionOptions"
++            :key="option.value"
++            class="compression-option"
++            :class="{ selected: quality === option.value }"
++          >
++            <input v-model="quality" type="radio" :value="option.value" />
++            <span>
++              <strong>{{ option.label }}</strong>
++              <small>{{ option.description }}</small>
++            </span>
++          </label>
++        </fieldset>
++
+         <div v-if="pageCount" class="page-count-note">
+           Detected {{ pageCount }} page{{ pageCount > 1 ? "s" : "" }} in this PDF.
+         </div>
+@@ -117,6 +134,7 @@ import JobStatus from "../components/JobStatus.vue";
+ import PdfPreview from "../components/PdfPreview.vue";
+ import {
+   getJob,
++  submitCompress,
+   submitDeletePages,
+   submitMerge,
+   submitRotate,
+@@ -130,6 +148,7 @@ const files = ref([]);
+ const pages = ref("");
+ const selectedPagesFromPreview = ref("");
+ const angle = ref("90");
++const quality = ref("balanced");
+ const isSubmitting = ref(false);
+ const uploadProgress = ref(0);
+ const errorMessage = ref("");
+@@ -140,6 +159,13 @@ const pageCount = ref(0);
+ const tool = computed(() => route.params.tool);
+ 
+ const toolConfigs = {
++  compress: {
++    title: "Compress PDF",
++    description:
++      "Reduce PDF file size while preserving text, links, forms, and page layout.",
++    multiple: false,
++    buttonText: "Compress PDF"
++  },
+   merge: {
+     title: "Merge PDF",
+     description: "Combine two or more PDF files into a single PDF document.",
+@@ -166,6 +192,24 @@ const toolConfigs = {
+   }
+ };
+ 
++const compressionOptions = [
++  {
++    value: "light",
++    label: "Light",
++    description: "Best visual quality with a smaller size reduction."
++  },
++  {
++    value: "balanced",
++    label: "Balanced",
++    description: "Recommended for sharing, email, and everyday use."
++  },
++  {
++    value: "strong",
++    label: "Strong",
++    description: "Smallest files with more image quality reduction."
++  }
++];
++
+ const config = computed(() => {
+   return toolConfigs[tool.value] || toolConfigs.merge;
+ });
+@@ -203,6 +247,10 @@ const isSubmitDisabled = computed(() => {
+     return files.value.length < 1 || !pages.value.trim() || !angle.value;
+   }
+ 
++  if (tool.value === "compress") {
++    return files.value.length < 1 || !quality.value;
++  }
++
+   return true;
+ });
+ 
+@@ -237,6 +285,7 @@ function resetStateForTool(newTool) {
+   errorMessage.value = "";
+   uploadProgress.value = 0;
+   angle.value = "90";
++  quality.value = "balanced";
+   selectedPagesFromPreview.value = "";
+   pageCount.value = 0;
+   pages.value = newTool === "rotate" ? "all" : "";
+@@ -284,6 +333,14 @@ async function submitTool() {
+       response = await submitMerge(files.value, handleUploadProgress);
+     }
+ 
++    if (tool.value === "compress") {
++      response = await submitCompress(
++        files.value[0],
++        quality.value,
++        handleUploadProgress
++      );
++    }
++
+     if (tool.value === "split") {
+       response = await submitSplit(files.value[0], pages.value, handleUploadProgress);
+     }
+diff --git a/backend/tests/test_pdf_compression.py b/backend/tests/test_pdf_compression.py
+new file mode 100644
+index 0000000..135a836
+--- /dev/null
++++ b/backend/tests/test_pdf_compression.py
+@@ -0,0 +1,51 @@
++import io
++import tempfile
++import unittest
++from pathlib import Path
++
++import fitz
++from PIL import Image
++
++from app.services.pdf_service import compress_pdf
++
++
++class PdfCompressionTests(unittest.TestCase):
++    def _create_image_heavy_pdf(self, path: Path) -> None:
++        image = Image.effect_noise((2600, 1800), 80).convert("RGB")
++        image_buffer = io.BytesIO()
++        image.save(image_buffer, format="PNG")
++
++        with fitz.open() as document:
++            page = document.new_page(width=612, height=792)
++            page.insert_text((50, 50), "Compression keeps this text searchable.")
++            page.insert_image(
++                fitz.Rect(40, 90, 572, 680),
++                stream=image_buffer.getvalue(),
++            )
++            document.save(path)
++
++    def test_strong_compression_reduces_size_and_preserves_content(self):
++        with tempfile.TemporaryDirectory() as directory:
++            input_path = Path(directory) / "input.pdf"
++            output_path = Path(directory) / "compressed.pdf"
++            self._create_image_heavy_pdf(input_path)
++
++            compress_pdf(input_path, output_path, "strong")
++
++            self.assertLess(output_path.stat().st_size, input_path.stat().st_size)
++            with fitz.open(output_path) as result:
++                self.assertEqual(result.page_count, 1)
++                self.assertIn("Compression keeps", result[0].get_text())
++
++    def test_invalid_quality_is_rejected(self):
++        with tempfile.TemporaryDirectory() as directory:
++            input_path = Path(directory) / "input.pdf"
++            output_path = Path(directory) / "compressed.pdf"
++            self._create_image_heavy_pdf(input_path)
++
++            with self.assertRaisesRegex(ValueError, "Quality must be"):
++                compress_pdf(input_path, output_path, "extreme")
++
++
++if __name__ == "__main__":
++    unittest.main()

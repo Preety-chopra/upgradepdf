@@ -1,4 +1,4 @@
-﻿<template>
+﻿<!-- <template>
   <div class="app-shell">
     <header class="topbar">
       <RouterLink to="/" class="brand">
@@ -21,4 +21,27 @@
       <RouterView />
     </main>
   </div>
+</template> -->
+
+<!-- frontend/src/App.vue -->
+
+<template>
+  <AppHeader />
+  <RouterView />
 </template>
+
+<script setup>
+import AppHeader from "./components/AppHeader.vue";
+</script>
+
+<style>
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: Arial, Helvetica, sans-serif;
+  background: #f5f5fa;
+}
+</style>

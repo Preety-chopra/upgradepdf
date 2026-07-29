@@ -42,6 +42,22 @@ export async function submitMerge(files, onUploadProgress) {
   return response.data;
 }
 
+export async function submitCompress(file, quality, onUploadProgress) {
+  const formData = new FormData();
+
+  formData.append("file", file);
+  formData.append("quality", quality);
+
+  const response = await apiClient.post("/api/pdf/compress", formData, {
+    headers: {
+      "Content-Type": "multipart/form-data"
+    },
+    onUploadProgress
+  });
+
+  return response.data;
+}
+
 export async function submitSplit(file, pages, onUploadProgress) {
   const formData = new FormData();
 

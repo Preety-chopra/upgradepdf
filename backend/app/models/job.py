@@ -21,6 +21,7 @@ class JobOperation(str, Enum):
     SPLIT = "split"
     ROTATE = "rotate"
     DELETE_PAGES = "delete_pages"
+    COMPRESS = "compress"
 
 
 class Job(Base):

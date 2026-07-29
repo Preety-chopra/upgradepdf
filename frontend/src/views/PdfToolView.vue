@@ -65,6 +65,23 @@
           </select>
         </div>
 
+        <fieldset v-if="tool === 'compress'" class="compression-options">
+          <legend>Compression level</legend>
+
+          <label
+            v-for="option in compressionOptions"
+            :key="option.value"
+            class="compression-option"
+            :class="{ selected: quality === option.value }"
+          >
+            <input v-model="quality" type="radio" :value="option.value" />
+            <span>
+              <strong>{{ option.label }}</strong>
+              <small>{{ option.description }}</small>
+            </span>
+          </label>
+        </fieldset>
+
         <div v-if="pageCount" class="page-count-note">
           Detected {{ pageCount }} page{{ pageCount > 1 ? "s" : "" }} in this PDF.
         </div>
@@ -117,6 +134,7 @@ import JobStatus from "../components/JobStatus.vue";
 import PdfPreview from "../components/PdfPreview.vue";
 import {
   getJob,
+  submitCompress,
   submitDeletePages,
   submitMerge,
   submitRotate,
@@ -130,6 +148,7 @@ const files = ref([]);
 const pages = ref("");
 const selectedPagesFromPreview = ref("");
 const angle = ref("90");
+const quality = ref("balanced");
 const isSubmitting = ref(false);
 const uploadProgress = ref(0);
 const errorMessage = ref("");
@@ -140,6 +159,13 @@ const pageCount = ref(0);
 const tool = computed(() => route.params.tool);
 
 const toolConfigs = {
+  compress: {
+    title: "Compress PDF",
+    description:
+      "Reduce PDF file size while preserving text, links, forms, and page layout.",
+    multiple: false,
+    buttonText: "Compress PDF"
+  },
   merge: {
     title: "Merge PDF",
     description: "Combine two or more PDF files into a single PDF document.",
@@ -165,6 +191,24 @@ const toolConfigs = {
     buttonText: "Delete Pages"
   }
 };
+
+const compressionOptions = [
+  {
+    value: "light",
+    label: "Light",
+    description: "Best visual quality with a smaller size reduction."
+  },
+  {
+    value: "balanced",
+    label: "Balanced",
+    description: "Recommended for sharing, email, and everyday use."
+  },
+  {
+    value: "strong",
+    label: "Strong",
+    description: "Smallest files with more image quality reduction."
+  }
+];
 
 const config = computed(() => {
   return toolConfigs[tool.value] || toolConfigs.merge;
@@ -203,6 +247,10 @@ const isSubmitDisabled = computed(() => {
     return files.value.length < 1 || !pages.value.trim() || !angle.value;
   }
 
+  if (tool.value === "compress") {
+    return files.value.length < 1 || !quality.value;
+  }
+
   return true;
 });
 
@@ -237,6 +285,7 @@ function resetStateForTool(newTool) {
   errorMessage.value = "";
   uploadProgress.value = 0;
   angle.value = "90";
+  quality.value = "balanced";
   selectedPagesFromPreview.value = "";
   pageCount.value = 0;
   pages.value = newTool === "rotate" ? "all" : "";
@@ -282,6 +331,14 @@ async function submitTool() {
 
     if (tool.value === "merge") {
       response = await submitMerge(files.value, handleUploadProgress);
+    }
+
+    if (tool.value === "compress") {
+      response = await submitCompress(
+        files.value[0],
+        quality.value,
+        handleUploadProgress
+      );
     }
 
     if (tool.value === "split") {

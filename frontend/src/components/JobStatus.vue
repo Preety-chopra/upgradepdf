@@ -31,6 +31,27 @@
         <small>Output</small>
         <p>{{ job.output_filename }}</p>
       </div>
+
+      <div v-if="job.operation === 'compress' && job.input_size_bytes != null">
+        <small>Original size</small>
+        <p>{{ formatSize(job.input_size_bytes) }}</p>
+      </div>
+
+      <div v-if="job.operation === 'compress' && job.output_size_bytes != null">
+        <small>Compressed size</small>
+        <p>{{ formatSize(job.output_size_bytes) }}</p>
+      </div>
+
+      <div
+        v-if="
+          job.operation === 'compress' &&
+          job.savings_percent !== null &&
+          job.savings_percent !== undefined
+        "
+      >
+        <small>Space saved</small>
+        <p>{{ job.savings_percent }}%</p>
+      </div>
     </div>
 
     <p v-if="job.error_message" class="error-box">
@@ -94,5 +115,17 @@ function formatDate(value) {
   }
 
   return new Date(value).toLocaleString();
+}
+
+function formatSize(bytes) {
+  if (bytes === null || bytes === undefined) {
+    return "-";
+  }
+
+  if (bytes < 1024 * 1024) {
+    return `${(bytes / 1024).toFixed(1)} KB`;
+  }
+
+  return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
 }
 </script>

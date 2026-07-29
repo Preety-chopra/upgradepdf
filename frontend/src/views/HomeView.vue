@@ -1,9 +1,7 @@
 ﻿<template>
   <main class="home-page">
     <section class="hero-section">
-      <p class="eyebrow">FixMyPDF</p>
       <h1>PDF Utility Platform</h1>
-      <p>Choose a tool and process your document securely.</p>
     </section>
 
     <section class="tools-grid">
@@ -37,18 +35,64 @@
         <p>Rearrange pages visually and export a new PDF.</p>
       </RouterLink>
 
-      <RouterLink class="tool-card module-card" to="/convert">
-        <span class="tool-icon">🔄</span>
-        <small>Module 6</small>
-        <h3>Conversion Tools</h3>
-        <p>PDF to JPG, images to PDF, Word/Excel to PDF, PDF to Word, and PDF to Excel/CSV.</p>
+      <RouterLink class="tool-card" to="/convert?type=pdf-to-jpg">
+        <div class="tool-icon">🖼️</div>
+        <h3>PDF to JPG</h3>
+        <p>Convert PDF pages into JPG images.</p>
       </RouterLink>
 
-      <RouterLink class="tool-card module-card cyan" to="/ocr">
-        <span class="tool-icon">🔍</span>
-        <small>Module 7</small>
-        <h3>OCR Tools</h3>
-        <p>Convert scanned PDFs into searchable PDFs with optional text export and progress status.</p>
+      <RouterLink class="tool-card" to="/convert?type=images-to-pdf">
+        <div class="tool-icon">📄</div>
+        <h3>JPG / PNG to PDF</h3>
+        <p>Create a PDF from image files.</p>
+      </RouterLink>
+
+      <RouterLink class="tool-card" to="/convert?type=word-to-pdf">
+        <div class="tool-icon">📝</div>
+        <h3>Word to PDF</h3>
+        <p>Convert DOC/DOCX files into PDF.</p>
+      </RouterLink>
+
+      <RouterLink class="tool-card" to="/convert?type=excel-to-pdf">
+        <div class="tool-icon">📊</div>
+        <h3>Excel to PDF</h3>
+        <p>Convert XLS/XLSX spreadsheets into PDF.</p>
+      </RouterLink>
+
+      <RouterLink class="tool-card" to="/convert?type=pdf-to-word">
+        <div class="tool-icon">🔁</div>
+        <h3>PDF to Word</h3>
+        <p>Convert PDF into editable Word format.</p>
+      </RouterLink>
+
+      <RouterLink class="tool-card" to="/convert?type=pdf-to-data-xlsx">
+        <div class="tool-icon">📑</div>
+        <h3>PDF to Excel / CSV</h3>
+        <p>Extract tables from PDF into Excel or CSV.</p>
+      </RouterLink>
+
+      <RouterLink class="tool-card ocr-card" to="/ocr">
+        <div class="tool-icon">🔍</div>
+        <h3>Scanned PDF OCR</h3>
+        <p>Upload scanned PDFs and generate searchable PDFs.</p>
+      </RouterLink>
+
+      <RouterLink class="tool-card ocr-card" to="/ocr">
+        <div class="tool-icon">🌐</div>
+        <h3>OCR Language Selection</h3>
+        <p>Select English, Hindi, or mixed language OCR.</p>
+      </RouterLink>
+
+      <RouterLink class="tool-card ocr-card" to="/ocr">
+        <div class="tool-icon">📥</div>
+        <h3>Searchable PDF Output</h3>
+        <p>Download OCR-processed searchable PDF files.</p>
+      </RouterLink>
+
+      <RouterLink class="tool-card ocr-card" to="/ocr">
+        <div class="tool-icon">📃</div>
+        <h3>Text Export</h3>
+        <p>Export OCR text separately as a text file.</p>
       </RouterLink>
     </section>
   </main>

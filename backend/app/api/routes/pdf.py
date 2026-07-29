@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Literal
 
 from fastapi import APIRouter, Depends, File, Form, UploadFile
 from sqlalchemy.orm import Session
@@ -12,6 +12,7 @@ from app.services.file_service import (
 )
 from app.services.job_service import create_job, set_task_id
 from app.workers.tasks import (
+    compress_pdf_task,
     delete_pages_pdf_task,
     merge_pdf_task,
     rotate_pdf_task,
@@ -19,6 +20,36 @@ from app.workers.tasks import (
 )
 
 router = APIRouter()
+
+
+@router.post("/compress")
+async def compress_pdf_api(
+    file: UploadFile = File(...),
+    quality: Literal["light", "balanced", "strong"] = Form("balanced"),
+    db: Session = Depends(get_db),
+):
+    job_id = create_job_id()
+
+    await save_uploaded_pdf(file=file, job_id=job_id)
+
+    create_job(
+        db=db,
+        job_id=job_id,
+        operation=JobOperation.COMPRESS,
+        input_filename=file.filename,
+    )
+
+    task = compress_pdf_task.delay(job_id, quality)
+    set_task_id(db=db, job_id=job_id, task_id=task.id)
+
+    return {
+        "message": "Compression job started.",
+        "job_id": job_id,
+        "task_id": task.id,
+        "quality": quality,
+        "job_status_url": f"/api/jobs/{job_id}",
+        "task_status_url": f"/api/files/status/{task.id}",
+    }
 
 
 @router.post("/merge")

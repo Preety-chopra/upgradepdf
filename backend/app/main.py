@@ -1,5 +1,6 @@
 ﻿from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import text
 
 from app.api.routes import files, health, jobs, pdf
 from app.core.config import settings
@@ -9,10 +10,18 @@ from app.modules.ocr.routes import router as ocr_router
 
 Base.metadata.create_all(bind=engine)
 
+# create_all does not extend an existing PostgreSQL enum. Keep upgrades from
+# earlier releases compatible with the compression operation.
+if engine.dialect.name == "postgresql":
+    with engine.begin() as connection:
+        connection.execute(
+            text("ALTER TYPE joboperation ADD VALUE IF NOT EXISTS 'COMPRESS'")
+        )
+
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
-    version="0.3.0",
+    version="0.4.0",
     description="Secure PDF utility platform backend",
 )
 
@@ -36,5 +45,5 @@ def root():
     return {
         "message": "PDF Utility Platform API is running",
         "docs": "/docs",
-        "version": "0.3.0",
+        "version": "0.4.0",
     }

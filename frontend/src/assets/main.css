@@ -416,6 +416,52 @@ h3 {
   color: var(--muted);
 }
 
+.compression-options {
+  display: grid;
+  gap: 10px;
+  margin: 0 0 20px;
+  padding: 0;
+  border: 0;
+}
+
+.compression-options legend {
+  margin-bottom: 10px;
+  font-weight: 800;
+}
+
+.compression-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: white;
+  cursor: pointer;
+}
+
+.compression-option.selected {
+  border-color: var(--primary);
+  background: #fff5f5;
+  box-shadow: 0 0 0 3px rgba(229, 50, 45, 0.1);
+}
+
+.compression-option input {
+  margin-top: 4px;
+  accent-color: var(--primary);
+}
+
+.compression-option strong,
+.compression-option small {
+  display: block;
+}
+
+.compression-option small {
+  margin-top: 4px;
+  color: var(--muted);
+  line-height: 1.4;
+}
+
 .progress-wrap {
   margin: 18px 0;
 }

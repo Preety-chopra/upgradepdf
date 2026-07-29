@@ -1,7 +1,17 @@
+import io
+import shutil
 from pathlib import Path
-from typing import List, Set
+from typing import Dict, List, Set
 
 import fitz  # PyMuPDF
+from PIL import Image
+
+
+COMPRESSION_PROFILES: Dict[str, dict] = {
+    "light": {"max_dimension": 2400, "jpeg_quality": 84},
+    "balanced": {"max_dimension": 1800, "jpeg_quality": 72},
+    "strong": {"max_dimension": 1200, "jpeg_quality": 55},
+}
 
 
 def _validate_pdf_path(path: Path) -> None:
@@ -10,6 +20,129 @@ def _validate_pdf_path(path: Path) -> None:
 
     if path.suffix.lower() != ".pdf":
         raise ValueError("Only PDF files are allowed.")
+
+
+def _encode_compressed_image(
+    image_bytes: bytes,
+    max_dimension: int,
+    jpeg_quality: int,
+) -> bytes | None:
+    """Downsample and encode an embedded image without changing page content."""
+
+    try:
+        with Image.open(io.BytesIO(image_bytes)) as image:
+            image.load()
+
+            largest_dimension = max(image.size)
+            if largest_dimension > max_dimension:
+                scale = max_dimension / largest_dimension
+                image = image.resize(
+                    (
+                        max(1, round(image.width * scale)),
+                        max(1, round(image.height * scale)),
+                    ),
+                    Image.Resampling.LANCZOS,
+                )
+
+            has_alpha = image.mode in {"RGBA", "LA"} or (
+                image.mode == "P" and "transparency" in image.info
+            )
+            output = io.BytesIO()
+
+            if has_alpha:
+                image.save(output, format="PNG", optimize=True)
+            else:
+                if image.mode not in {"RGB", "L"}:
+                    image = image.convert("RGB")
+                image.save(
+                    output,
+                    format="JPEG",
+                    quality=jpeg_quality,
+                    optimize=True,
+                    progressive=True,
+                )
+
+            candidate = output.getvalue()
+            if len(candidate) >= len(image_bytes) * 0.95:
+                return None
+
+            return candidate
+    except (OSError, ValueError):
+        # Unsupported image encodings are left untouched. Document-level
+        # cleanup can still compress their streams.
+        return None
+
+
+def compress_pdf(input_path: Path, output_path: Path, quality: str) -> Path:
+    """Compress a PDF while preserving text, links, forms, and vectors."""
+
+    _validate_pdf_path(input_path)
+
+    if quality not in COMPRESSION_PROFILES:
+        raise ValueError("Quality must be one of: light, balanced, strong.")
+
+    profile = COMPRESSION_PROFILES[quality]
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    working_path = output_path.with_suffix(".working.pdf")
+
+    try:
+        with fitz.open(input_path) as doc:
+            if doc.needs_pass:
+                raise ValueError(
+                    "Password-protected PDFs are not supported for compression."
+                )
+
+            if doc.page_count < 1:
+                raise ValueError("The PDF does not contain any pages.")
+
+            image_pages: Dict[int, int] = {}
+            for page_number in range(doc.page_count):
+                for image in doc.get_page_images(page_number, full=True):
+                    xref, soft_mask_xref = image[0], image[1]
+                    # Resizing an image independently from its soft mask can
+                    # corrupt transparency, so those images are preserved.
+                    if xref > 0 and soft_mask_xref == 0:
+                        image_pages.setdefault(xref, page_number)
+
+            for xref, page_number in image_pages.items():
+                extracted = doc.extract_image(xref)
+                original = extracted.get("image")
+                if not original:
+                    continue
+
+                replacement = _encode_compressed_image(
+                    original,
+                    max_dimension=profile["max_dimension"],
+                    jpeg_quality=profile["jpeg_quality"],
+                )
+                if replacement:
+                    page = doc.load_page(page_number)
+                    page.replace_image(xref, stream=replacement)
+
+            doc.save(
+                working_path,
+                garbage=4,
+                clean=True,
+                deflate=True,
+                deflate_images=True,
+                deflate_fonts=True,
+                use_objstms=1,
+            )
+
+        if working_path.stat().st_size < input_path.stat().st_size:
+            working_path.replace(output_path)
+        else:
+            shutil.copy2(input_path, output_path)
+            working_path.unlink(missing_ok=True)
+
+        # Reopen the artifact so corrupt output is never marked successful.
+        with fitz.open(output_path) as result:
+            if result.page_count < 1:
+                raise ValueError("Compression produced an invalid PDF.")
+
+        return output_path
+    finally:
+        working_path.unlink(missing_ok=True)
 
 
 def _parse_pages(pages: str, total_pages: int) -> List[int]:
