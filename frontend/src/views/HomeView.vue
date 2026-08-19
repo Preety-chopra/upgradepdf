@@ -65,31 +65,31 @@
         <p>Convert PDF into editable Word format.</p>
       </RouterLink>
 
-      <RouterLink class="tool-card" to="/convert?type=pdf-to-data-xlsx">
+      <RouterLink class="tool-card" to="/convert?type=pdf-to-excel">
         <div class="tool-icon">📑</div>
         <h3>PDF to Excel / CSV</h3>
         <p>Extract tables from PDF into Excel or CSV.</p>
       </RouterLink>
 
-      <RouterLink class="tool-card ocr-card" to="/ocr">
+      <RouterLink class="tool-card ocr-card" to="/tools/ocr-pdf">
         <div class="tool-icon">🔍</div>
         <h3>Scanned PDF OCR</h3>
         <p>Upload scanned PDFs and generate searchable PDFs.</p>
       </RouterLink>
 
-      <RouterLink class="tool-card ocr-card" to="/ocr">
+      <RouterLink class="tool-card ocr-card" to="/tools/ocr-pdf">
         <div class="tool-icon">🌐</div>
         <h3>OCR Language Selection</h3>
         <p>Select English, Hindi, or mixed language OCR.</p>
       </RouterLink>
 
-      <RouterLink class="tool-card ocr-card" to="/ocr">
+      <RouterLink class="tool-card ocr-card" to="/tools/ocr-pdf">
         <div class="tool-icon">📥</div>
         <h3>Searchable PDF Output</h3>
         <p>Download OCR-processed searchable PDF files.</p>
       </RouterLink>
 
-      <RouterLink class="tool-card ocr-card" to="/ocr">
+      <RouterLink class="tool-card ocr-card" to="/tools/ocr-pdf">
         <div class="tool-icon">📃</div>
         <h3>Text Export</h3>
         <p>Export OCR text separately as a text file.</p>

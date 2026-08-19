@@ -7,7 +7,7 @@ celery_app = Celery(
     "pdf_worker",
     broker=settings.redis_url,
     backend=settings.redis_url,
-    include=["app.workers.tasks"],
+    include=["app.workers.tasks", "app.modules.ocr.tasks"],
 )
 
 celery_app.conf.update(
@@ -17,6 +17,7 @@ celery_app.conf.update(
     accept_content=["json"],
     timezone="Asia/Kolkata",
     enable_utc=False,
+    task_routes={"app.modules.ocr.tasks.process_ocr_job": {"queue": "ocr"}},
 )
 
 celery_app.conf.beat_schedule = {

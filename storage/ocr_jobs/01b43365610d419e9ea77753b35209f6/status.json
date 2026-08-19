@@ -1,0 +1,17 @@
+{
+  "job_id": "01b43365610d419e9ea77753b35209f6",
+  "status": "completed",
+  "percent": 100,
+  "message": "OCR completed. Searchable PDF is ready.",
+  "filename": "input.pdf",
+  "input_filename": "input.pdf",
+  "language": "eng",
+  "export_text": true,
+  "created_at": "2026-08-04T05:50:01.410865+00:00",
+  "updated_at": "2026-08-04T05:50:19.603832+00:00",
+  "page_count": 1,
+  "output_pdf": "output/input_searchable.pdf",
+  "output_text": "output/input_ocr.txt",
+  "completed_at": "2026-08-04T05:50:19.552612+00:00",
+  "error": null
+}

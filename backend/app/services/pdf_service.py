@@ -26,6 +26,7 @@ def _encode_compressed_image(
     image_bytes: bytes,
     max_dimension: int,
     jpeg_quality: int,
+    source_filter: str = "",
 ) -> bytes | None:
     """Downsample and encode an embedded image without changing page content."""
 
@@ -49,7 +50,16 @@ def _encode_compressed_image(
             )
             output = io.BytesIO()
 
-            if has_alpha:
+            if source_filter == "CCITTFaxDecode":
+                # CCITT images are monochrome document scans. JPEG is both slow
+                # and usually larger for this content, while Group 4 retains the
+                # crisp bilevel representation after downsampling.
+                image = image.convert("L").convert(
+                    "1",
+                    dither=Image.Dither.NONE,
+                )
+                image.save(output, format="TIFF", compression="group4")
+            elif has_alpha:
                 image.save(output, format="PNG", optimize=True)
             else:
                 if image.mode not in {"RGB", "L"}:
@@ -95,16 +105,16 @@ def compress_pdf(input_path: Path, output_path: Path, quality: str) -> Path:
             if doc.page_count < 1:
                 raise ValueError("The PDF does not contain any pages.")
 
-            image_pages: Dict[int, int] = {}
+            image_pages: Dict[int, tuple[int, str]] = {}
             for page_number in range(doc.page_count):
                 for image in doc.get_page_images(page_number, full=True):
                     xref, soft_mask_xref = image[0], image[1]
                     # Resizing an image independently from its soft mask can
                     # corrupt transparency, so those images are preserved.
                     if xref > 0 and soft_mask_xref == 0:
-                        image_pages.setdefault(xref, page_number)
+                        image_pages.setdefault(xref, (page_number, image[8]))
 
-            for xref, page_number in image_pages.items():
+            for xref, (page_number, source_filter) in image_pages.items():
                 extracted = doc.extract_image(xref)
                 original = extracted.get("image")
                 if not original:
@@ -114,6 +124,7 @@ def compress_pdf(input_path: Path, output_path: Path, quality: str) -> Path:
                     original,
                     max_dimension=profile["max_dimension"],
                     jpeg_quality=profile["jpeg_quality"],
+                    source_filter=source_filter,
                 )
                 if replacement:
                     page = doc.load_page(page_number)

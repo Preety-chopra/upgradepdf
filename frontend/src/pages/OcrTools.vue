@@ -176,8 +176,8 @@ async function fetchLanguages() {
     if (!response.ok) return;
 
     const data = await response.json();
-    if (Array.isArray(data.languages)) {
-      languages.value = data.languages.map((item) => {
+    if (Array.isArray(data.supported)) {
+      languages.value = data.supported.map((item) => {
         if (typeof item === 'string') return { code: item, label: item };
         return {
           code: item.code || item.value || item.lang,
@@ -269,7 +269,7 @@ async function pollStatus() {
 
     const data = await response.json();
     status.value = data.status || status.value;
-    progress.value = normalizeProgress(data.progress);
+    progress.value = normalizeProgress(data.percent);
 
     if (data.error) {
       error.value = data.error;

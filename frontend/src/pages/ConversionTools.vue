@@ -139,6 +139,7 @@ const tools = [
     endpoint: '/api/conversions/pdf-to-jpg',
     defaultName: 'pdf-pages.zip'
   },
+
   {
     key: 'images-to-pdf',
     title: 'JPG / PNG to PDF',
@@ -218,22 +219,12 @@ const tools = [
     defaultName: 'tables.csv'
   }
 ];
-
-const allowedTypes = [
-  "pdf-to-jpg",
-  "images-to-pdf",
-  "word-to-pdf",
-  "excel-to-pdf",
-  "pdf-to-word",
-  "pdf-to-data-xlsx",
-  "pdf-to-data-csv"
-];
-
+const route = useRoute();
 onMounted(() => {
   const typeFromDashboard = route.query.type;
 
-  if (allowedTypes.includes(typeFromDashboard)) {
-    conversionType.value = typeFromDashboard;
+  if (tools.some((tool) => tool.key === typeFromDashboard)) {
+    selectedKey.value = typeFromDashboard;
   }
 });
 

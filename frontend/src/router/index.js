@@ -15,10 +15,16 @@ const routes = [
 
   {
     path: "/tools/ocr-pdf",
+    alias: "/ocr",
     name: "ocr-pdf",
     component: OcrTools
   },
 
+  {
+    path: "/convert",
+    name: "convert",
+    component: ConversionTools
+  },
   {
     path: "/tools/:tool(jpg-to-pdf|png-to-pdf|word-to-pdf|excel-to-pdf|pdf-to-jpg|pdf-to-word|pdf-to-excel|pdf-to-csv)",
     name: "conversion-tool",
