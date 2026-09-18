@@ -2,8 +2,9 @@ name: fixmypdf
 
 x-backend: &backend
   build:
-    context: ./backend
+    context: .
     dockerfile: Dockerfile
+    target: backend
   env_file:
     - .env
   restart: unless-stopped
@@ -55,8 +56,9 @@ services:
 
   frontend:
     build:
-      context: ./frontend
+      context: .
       dockerfile: Dockerfile
+      target: frontend-production
       args:
         VITE_API_BASE_URL: ${VITE_API_BASE_URL:-}
     restart: unless-stopped

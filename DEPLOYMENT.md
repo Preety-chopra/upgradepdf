@@ -5,6 +5,10 @@ Vue application and serves it through Nginx. Nginx proxies `/api`, `/docs`, and
 `/openapi.json` to the private API container. PostgreSQL and Redis are not
 published to the internet.
 
+The root `Dockerfile` contains separate `backend`, `frontend-development`, and
+`frontend-production` build targets. Docker Compose selects the correct target
+for each service; there are no Dockerfiles inside `backend/` or `frontend/`.
+
 ## Required EC2 setup
 
 - Ubuntu 22.04 or newer
