@@ -1,6 +1,7 @@
 name: fixmypdf
 
 x-backend: &backend
+  image: ${BACKEND_IMAGE:-fixmypdf-api:latest}
   build:
     context: .
     dockerfile: Dockerfile
@@ -55,6 +56,7 @@ services:
         condition: service_started
 
   frontend:
+    image: ${FRONTEND_IMAGE:-fixmypdf-frontend:latest}
     build:
       context: .
       dockerfile: Dockerfile

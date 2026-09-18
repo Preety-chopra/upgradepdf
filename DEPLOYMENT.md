@@ -49,6 +49,17 @@ docker compose up --build -d
 docker image prune -f
 ```
 
+## Deploying prebuilt Docker Hub images
+
+Use one Docker Hub repository with separate `backend` and `frontend` tags. Set
+`BACKEND_IMAGE` and `FRONTEND_IMAGE` in the EC2 `.env`, then deploy without
+building on the instance:
+
+```bash
+docker compose pull
+docker compose up -d --no-build
+```
+
 ## Logs and health
 
 ```bash
