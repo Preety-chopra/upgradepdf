@@ -5,16 +5,26 @@ __pycache__/
 *.pyd
 .Python
 venv/
-.env.local
+.env
+.env.*
+!.env.example
 
 # Docker
 *.log
 
+# Runtime state
+backend/celerybeat-schedule*
+frontend/dist/
+frontend/node_modules/
+
 # Storage
 storage/uploads/*
 storage/outputs/*
+storage/ocr_jobs/*
+storage/qa_compress/
 !storage/uploads/.gitkeep
 !storage/outputs/.gitkeep
+!storage/ocr_jobs/.gitkeep
 
 # IDE
 .vscode/

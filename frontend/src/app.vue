@@ -11,7 +11,7 @@
 
       <nav class="topnav">
         <RouterLink to="/">Home</RouterLink>
-        <a href="http://localhost:8000/docs" target="_blank" rel="noreferrer">
+        <a href="/docs" target="_blank" rel="noreferrer">
           API Docs
         </a>
       </nav>
