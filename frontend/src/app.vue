@@ -4,7 +4,7 @@
       <RouterLink to="/" class="brand">
         <span class="brand-icon">PDF</span>
         <span>
-          <strong>PDF Utility Platform</strong>
+          <strong>UpgradePDF</strong>
           <small>Secure document tools</small>
         </span>
       </RouterLink>

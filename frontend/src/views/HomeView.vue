@@ -1,7 +1,7 @@
 ﻿<template>
   <main class="home-page">
     <section class="hero-section">
-      <h1>PDF Utility Platform</h1>
+      <h1>UpgradePDF</h1>
     </section>
 
     <section class="tools-grid">

@@ -3,11 +3,11 @@
 <template>
   <header class="app-header">
     <RouterLink to="/" class="logo">
-      <span>FixMyPDF</span>
+      <img src="../assets/logo1.png" alt="UpgradePDF.com" />
     </RouterLink>
 
     <nav class="main-nav">
-      <RouterLink
+       <RouterLink
         to="/tools/merge"
         class="nav-link"
         :class="{ active: currentTool === 'merge' }"
@@ -99,10 +99,10 @@
       </div>
     </nav>
 
-    <div class="header-actions">
+    <!-- <div class="header-actions">
       <button class="login-btn">Login</button>
       <button class="signup-btn">Sign up</button>
-    </div>
+    </div> -->
   </header>
 </template>
 
@@ -153,19 +153,17 @@ const isAnyPdfTool = computed(() => {
 }
 
 .logo {
-  font-size: 40px;
-  font-weight: 900;
-  color: #000;
   text-decoration: none;
-  letter-spacing: -1px;
   display: flex;
   align-items: center;
-  white-space: nowrap;
 }
 
-.logo .heart {
-  color: #e5322d;
-  margin: 0 4px;
+.logo img {
+  display: block;
+  width: auto;
+  height: 52px;
+  max-width: 240px;
+  object-fit: contain;
 }
 
 .main-nav {
@@ -330,8 +328,9 @@ const isAnyPdfTool = computed(() => {
     overflow-x: auto;
   }
 
-  .logo {
-    font-size: 30px;
+  .logo img {
+    height: 44px;
+    max-width: 200px;
   }
 
   .main-nav {
