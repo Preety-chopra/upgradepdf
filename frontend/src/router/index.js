@@ -5,6 +5,7 @@ import PdfToolView from "../views/PdfToolView.vue";
 
 import ConversionTools from "../pages/ConversionTools.vue";
 import OcrTools from "../pages/OcrTools.vue";
+import { applySeoMetadata } from "../seo";
 
 const routes = [
   {
@@ -43,6 +44,10 @@ const routes = [
 const router = createRouter({
   history: createWebHistory(),
   routes
+});
+
+router.afterEach((to) => {
+  applySeoMetadata(to);
 });
 
 export default router;

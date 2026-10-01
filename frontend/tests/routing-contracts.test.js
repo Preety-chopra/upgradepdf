@@ -53,3 +53,71 @@ test('OCR UI consumes the backend language and progress field names', async () =
   assert.match(source, /data\.percent/);
   assert.doesNotMatch(source, /data\.progress/);
 });
+
+
+test('public routes update the meta title and description', async () => {
+  const [router, seo, index, seoModule] = await Promise.all([
+    readSource('src/router/index.js'),
+    readSource('src/seo.js'),
+    readSource('index.html'),
+    import('../src/seo.js')
+  ]);
+
+  assert.match(router, /router\.afterEach/);
+  assert.match(router, /applySeoMetadata\(to\)/);
+  assert.match(seo, /document\.title\s*=/);
+  assert.match(seo, /upsertMetaTag\("name", "description", metadata\.description\)/);
+  assert.match(seo, /upsertMetaTag\("property", "og:title", title\)/);
+  assert.match(seo, /upsertMetaTag\("property", "og:description", metadata\.description\)/);
+  assert.match(seo, /upsertStructuredData\(getStructuredData\(route\)\)/);
+  assert.match(seo, /"pdf-to-word"/);
+  assert.match(seo, /"ocr-pdf"/);
+  assert.match(index, /<meta\s+[\s\S]*?name="description"/);
+  assert.match(index, /property="og:title"/);
+  assert.match(index, /property="og:description"/);
+  assert.match(index, /type="application\/ld\+json"/);
+  assert.match(index, /<title>UpgradePDF – Free Online PDF Tools<\/title>/);
+
+  const staticSchemaMatch = index.match(
+    /<script id="upgradepdf-structured-data" type="application\/ld\+json">([\s\S]*?)<\/script>/
+  );
+  assert.ok(staticSchemaMatch, 'Homepage JSON-LD script is missing');
+  const staticSchema = JSON.parse(staticSchemaMatch[1]);
+  assert.deepEqual(
+    staticSchema['@graph'].map((item) => item['@type']),
+    ['Organization', 'WebSite', 'WebApplication']
+  );
+
+  const mergeMetadata = seoModule.getSeoMetadata({
+    name: 'pdf-tool',
+    params: { tool: 'merge' },
+    query: {}
+  });
+  const conversionMetadata = seoModule.getSeoMetadata({
+    name: 'convert',
+    params: {},
+    query: { type: 'pdf-to-word' }
+  });
+
+  assert.equal(mergeMetadata.title, 'Merge PDF Online – Combine PDF Files');
+  assert.match(mergeMetadata.description, /Combine two or more PDF files/);
+  assert.equal(conversionMetadata.title, 'PDF to Word Converter Online');
+
+  const homeSchema = seoModule.getStructuredData({ name: 'home', params: {}, query: {} });
+  const mergeSchema = seoModule.getStructuredData({
+    name: 'pdf-tool',
+    params: { tool: 'merge' },
+    query: {}
+  });
+
+  assert.deepEqual(
+    homeSchema['@graph'].map((item) => item['@type']),
+    ['Organization', 'WebSite', 'WebApplication']
+  );
+  assert.deepEqual(
+    mergeSchema['@graph'].map((item) => item['@type']),
+    ['WebPage', 'WebApplication', 'BreadcrumbList']
+  );
+  assert.equal(mergeSchema['@graph'][1].offers.price, '0');
+  assert.equal(mergeSchema['@graph'][2].itemListElement.length, 2);
+});
