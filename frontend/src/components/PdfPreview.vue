@@ -100,7 +100,8 @@ import { computed, markRaw, nextTick, ref, shallowRef, watch } from "vue";
 import * as pdfjsLib from "pdfjs-dist/legacy/build/pdf.mjs";
 import pdfWorkerUrl from "pdfjs-dist/build/pdf.worker.mjs?url";
 
-pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
+// Bust responses cached before Nginx served .mjs files as JavaScript.
+pdfjsLib.GlobalWorkerOptions.workerSrc = `${pdfWorkerUrl}?module=1`;
 
 const props = defineProps({
   file: {
