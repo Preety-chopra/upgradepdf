@@ -10,21 +10,25 @@ test('conversion dashboard route renders the conversion page', async () => {
   const router = await readSource('src/router/index.js');
   assert.match(router, /path:\s*["']\/convert["']/);
   assert.match(router, /name:\s*["']convert["'][\s\S]*component:\s*ConversionTools/);
+  assert.match(router, /images-to-pdf/);
 });
 
 
-test('dashboard conversion query values map to implemented tools', async () => {
+test('dashboard conversion links use canonical tool URLs that map to implemented tools', async () => {
   const [home, conversionPage] = await Promise.all([
     readSource('src/views/HomeView.vue'),
     readSource('src/pages/ConversionTools.vue')
   ]);
 
-  const dashboardTypes = [...home.matchAll(/to="\/convert\?type=([^"]+)"/g)].map((match) => match[1]);
+  const dashboardTypes = [...home.matchAll(/to="\/tools\/([^"]+)"/g)]
+    .map((match) => match[1])
+    .filter((type) => conversionPage.includes(`key: '${type}'`));
   const implementedTypes = new Set(
     [...conversionPage.matchAll(/key:\s*'([^']+)'/g)].map((match) => match[1])
   );
 
   assert.ok(dashboardTypes.length > 0);
+  assert.doesNotMatch(home, /\/convert\?type=/);
   for (const type of dashboardTypes) {
     assert.ok(implementedTypes.has(type), `Dashboard conversion type is not implemented: ${type}`);
   }
@@ -44,6 +48,15 @@ test('images-to-pdf accepts multiple images and uses the matching API endpoint',
   const toolBlock = source.match(/key:\s*'images-to-pdf'[\s\S]*?\n\s*\}/)?.[0] || '';
   assert.match(toolBlock, /multiple:\s*true/);
   assert.match(toolBlock, /endpoint:\s*'\/api\/conversions\/images-to-pdf'/);
+});
+
+
+test('merge preview can switch between every selected PDF', async () => {
+  const source = await readSource('src/views/PdfToolView.vue');
+
+  assert.match(source, /v-model\.number="activePreviewIndex"/);
+  assert.match(source, /v-for="\(file, index\) in files"/);
+  assert.match(source, /files\.value\[activePreviewIndex\.value\]\s*\|\|\s*files\.value\[0\]/);
 });
 
 
@@ -69,12 +82,20 @@ test('public routes update the meta title and description', async () => {
   assert.match(seo, /upsertMetaTag\("name", "description", metadata\.description\)/);
   assert.match(seo, /upsertMetaTag\("property", "og:title", title\)/);
   assert.match(seo, /upsertMetaTag\("property", "og:description", metadata\.description\)/);
+  assert.match(seo, /upsertLinkTag\("canonical", pageUrl\)/);
+  assert.match(seo, /upsertMetaTag\("property", "og:url", pageUrl\)/);
+  assert.match(seo, /upsertMetaTag\("property", "og:image", SOCIAL_IMAGE_URL\)/);
+  assert.match(seo, /upsertMetaTag\("name", "twitter:card", "summary_large_image"\)/);
   assert.match(seo, /upsertStructuredData\(getStructuredData\(route\)\)/);
   assert.match(seo, /"pdf-to-word"/);
   assert.match(seo, /"ocr-pdf"/);
   assert.match(index, /<meta\s+[\s\S]*?name="description"/);
   assert.match(index, /property="og:title"/);
   assert.match(index, /property="og:description"/);
+  assert.match(index, /rel="canonical" href="https:\/\/upgradepdf\.com\/"/);
+  assert.match(index, /property="og:image"/);
+  assert.match(index, /property="og:image:width" content="4096"/);
+  assert.match(index, /name="twitter:card"/);
   assert.match(index, /type="application\/ld\+json"/);
   assert.match(index, /<title>UpgradePDF – Free Online PDF Tools<\/title>/);
 
@@ -116,8 +137,32 @@ test('public routes update the meta title and description', async () => {
   );
   assert.deepEqual(
     mergeSchema['@graph'].map((item) => item['@type']),
-    ['WebPage', 'WebApplication', 'BreadcrumbList']
+    ['Organization', 'WebSite', 'WebPage', 'WebApplication', 'BreadcrumbList']
   );
-  assert.equal(mergeSchema['@graph'][1].offers.price, '0');
-  assert.equal(mergeSchema['@graph'][2].itemListElement.length, 2);
+  assert.equal(mergeSchema['@graph'][3].offers.price, '0');
+  assert.equal(mergeSchema['@graph'][3].isAccessibleForFree, true);
+  assert.equal(mergeSchema['@graph'][4].itemListElement.length, 2);
+});
+
+test('robots and sitemap expose every indexable public route', async () => {
+  const [robots, sitemap] = await Promise.all([
+    readSource('public/robots.txt'),
+    readSource('public/sitemap.xml')
+  ]);
+
+  assert.match(robots, /User-agent:\s*\*/);
+  assert.match(robots, /Allow:\s*\//);
+  assert.match(robots, /Sitemap:\s*https:\/\/upgradepdf\.com\/sitemap\.xml/);
+
+  for (const path of [
+    '/',
+    '/convert',
+    '/tools/merge',
+    '/tools/compress',
+    '/tools/ocr-pdf',
+    '/tools/pdf-to-jpg',
+    '/tools/pdf-to-word'
+  ]) {
+    assert.match(sitemap, new RegExp(`<loc>https://upgradepdf\\.com${path}</loc>`));
+  }
 });

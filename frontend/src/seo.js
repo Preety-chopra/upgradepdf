@@ -1,5 +1,6 @@
-const SITE_NAME = "UpgradePDF";
-const SITE_URL = "https://upgradepdf.com";
+export const SITE_NAME = "UpgradePDF";
+export const SITE_URL = "https://upgradepdf.com";
+export const SOCIAL_IMAGE_URL = `${SITE_URL}/og-image.jpg`;
 
 const DEFAULT_METADATA = {
   title: "UpgradePDF – Free Online PDF Tools",
@@ -177,7 +178,7 @@ const WEBSITE_SCHEMA = {
   }
 };
 
-function withSiteName(title) {
+export function withSiteName(title) {
   return title.includes(SITE_NAME) ? title : `${title} | ${SITE_NAME}`;
 }
 
@@ -190,6 +191,17 @@ function upsertMetaTag(attribute, value, content) {
   }
 
   tag.setAttribute("content", content);
+}
+
+function upsertLinkTag(rel, href) {
+  let tag = document.querySelector(`link[rel="${rel}"]`);
+  if (!tag) {
+    tag = document.createElement("link");
+    tag.setAttribute("rel", rel);
+    document.head.appendChild(tag);
+  }
+
+  tag.setAttribute("href", href);
 }
 
 function upsertStructuredData(data) {
@@ -220,7 +232,7 @@ function getToolKey(route) {
   return null;
 }
 
-function getPageUrl(route, toolKey) {
+export function getPageUrl(route, toolKey = getToolKey(route)) {
   if (route.name === "ocr-pdf") {
     return `${SITE_URL}/tools/ocr-pdf`;
   }
@@ -230,7 +242,7 @@ function getPageUrl(route, toolKey) {
   }
 
   if (route.name === "convert" && toolKey) {
-    return `${SITE_URL}/convert?type=${encodeURIComponent(toolKey)}`;
+    return `${SITE_URL}/tools/${encodeURIComponent(toolKey)}`;
   }
 
   if (route.name === "convert") {
@@ -311,6 +323,8 @@ export function getStructuredData(route) {
   return {
     "@context": "https://schema.org",
     "@graph": [
+      ORGANIZATION_SCHEMA,
+      WEBSITE_SCHEMA,
       {
         "@type": "WebPage",
         "@id": `${pageUrl}#webpage`,
@@ -322,6 +336,9 @@ export function getStructuredData(route) {
         },
         mainEntity: {
           "@id": `${pageUrl}#application`
+        },
+        breadcrumb: {
+          "@id": `${pageUrl}#breadcrumb`
         }
       },
       {
@@ -332,6 +349,7 @@ export function getStructuredData(route) {
         description: metadata.description,
         applicationCategory: "UtilitiesApplication",
         operatingSystem: "Any",
+        isAccessibleForFree: true,
         browserRequirements: "Requires a modern web browser with JavaScript enabled.",
         featureList: features,
         offers: {
@@ -368,10 +386,25 @@ export function getStructuredData(route) {
 export function applySeoMetadata(route) {
   const metadata = getSeoMetadata(route);
   const title = withSiteName(metadata.title);
+  const pageUrl = getPageUrl(route);
 
   document.title = title;
+  upsertLinkTag("canonical", pageUrl);
   upsertMetaTag("name", "description", metadata.description);
   upsertMetaTag("property", "og:title", title);
   upsertMetaTag("property", "og:description", metadata.description);
+  upsertMetaTag("property", "og:type", "website");
+  upsertMetaTag("property", "og:url", pageUrl);
+  upsertMetaTag("property", "og:site_name", SITE_NAME);
+  upsertMetaTag("property", "og:image", SOCIAL_IMAGE_URL);
+  upsertMetaTag("property", "og:image:type", "image/jpeg");
+  upsertMetaTag("property", "og:image:width", "4096");
+  upsertMetaTag("property", "og:image:height", "1943");
+  upsertMetaTag("property", "og:image:alt", `${SITE_NAME} online PDF tools`);
+  upsertMetaTag("name", "twitter:card", "summary_large_image");
+  upsertMetaTag("name", "twitter:title", title);
+  upsertMetaTag("name", "twitter:description", metadata.description);
+  upsertMetaTag("name", "twitter:image", SOCIAL_IMAGE_URL);
+  upsertMetaTag("name", "twitter:image:alt", `${SITE_NAME} online PDF tools`);
   upsertStructuredData(getStructuredData(route));
 }

@@ -17,3 +17,9 @@ test("invalidates the worker response cached with the old MIME type", async () =
 
   assert.match(component, /workerSrc\s*=\s*`\$\{pdfWorkerUrl\}\?module=1`/);
 });
+
+test("serves generated route HTML before the SPA fallback", async () => {
+  const config = await readFile(new URL("../nginx.conf", import.meta.url), "utf8");
+
+  assert.match(config, /try_files\s+\$uri\s+\$uri\.html\s+\$uri\/\s+\/index\.html;/);
+});

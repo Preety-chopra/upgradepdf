@@ -1,23 +1,27 @@
 <template>
   <div v-if="file" class="pdf-preview">
     <div class="preview-header">
-      <div>
-        <p class="eyebrow">PDF Preview</p>
-        <h3>{{ file.name }}</h3>
-        <p v-if="pageCount" class="muted-text">
-          {{ pageCount }} page{{ pageCount > 1 ? "s" : "" }}
-        </p>
+      <div class="preview-file-details">
+        <span class="preview-file-icon" aria-hidden="true">PDF</span>
+
+        <div>
+          <p class="preview-kicker">Document preview</p>
+          <h3>{{ file.name }}</h3>
+          <p class="muted-text">
+            {{ pageCount ? `${pageCount} page${pageCount > 1 ? "s" : ""}` : "Preparing preview" }}
+          </p>
+        </div>
       </div>
 
-      <div class="preview-actions">
-        <button type="button" class="small-btn" @click="zoomOut">−</button>
-        <span class="zoom-label">{{ Math.round(scale * 100) }}%</span>
-        <button type="button" class="small-btn" @click="zoomIn">+</button>
-      </div>
+      <span v-if="pageCount" class="preview-ready-badge">Ready to review</span>
     </div>
 
     <div v-if="loading" class="preview-loading">
-      Loading PDF preview...
+      <span class="preview-spinner" aria-hidden="true"></span>
+      <span>
+        <strong>Preparing your preview</strong>
+        <small>Rendering pages securely in your browser…</small>
+      </span>
     </div>
 
     <p v-if="errorMessage" class="error-box">
@@ -54,18 +58,59 @@
       </aside>
 
       <section class="main-preview-panel">
-        <div class="page-controls">
-          <button type="button" class="secondary-btn" :disabled="currentPage <= 1" @click="previousPage">
-            Previous
-          </button>
+        <div class="preview-toolbar">
+          <div class="page-controls">
+            <button
+              type="button"
+              class="preview-tool-btn"
+              :disabled="currentPage <= 1"
+              aria-label="Previous page"
+              title="Previous page"
+              @click="previousPage"
+            >
+              <span aria-hidden="true">←</span>
+            </button>
 
-          <span>
-            Page {{ currentPage }} of {{ pageCount }}
-          </span>
+            <span class="page-indicator">
+              <strong>{{ currentPage }}</strong>
+              <span>of {{ pageCount }}</span>
+            </span>
 
-          <button type="button" class="secondary-btn" :disabled="currentPage >= pageCount" @click="nextPage">
-            Next
-          </button>
+            <button
+              type="button"
+              class="preview-tool-btn"
+              :disabled="currentPage >= pageCount"
+              aria-label="Next page"
+              title="Next page"
+              @click="nextPage"
+            >
+              <span aria-hidden="true">→</span>
+            </button>
+          </div>
+
+          <div class="preview-actions" aria-label="Zoom controls">
+            <button
+              type="button"
+              class="preview-tool-btn"
+              :disabled="scale <= 0.6"
+              aria-label="Zoom out"
+              title="Zoom out"
+              @click="zoomOut"
+            >
+              <span aria-hidden="true">−</span>
+            </button>
+            <span class="zoom-label">{{ Math.round(scale * 100) }}%</span>
+            <button
+              type="button"
+              class="preview-tool-btn"
+              :disabled="scale >= 2.5"
+              aria-label="Zoom in"
+              title="Zoom in"
+              @click="zoomIn"
+            >
+              <span aria-hidden="true">+</span>
+            </button>
+          </div>
         </div>
 
         <div class="canvas-wrap">

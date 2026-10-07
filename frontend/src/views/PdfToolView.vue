@@ -21,6 +21,23 @@
         />
 
         <div v-if="showPreview" class="preview-area">
+          <div v-if="files.length > 1" class="preview-file-selector">
+            <label for="preview-file">Preview file</label>
+            <select id="preview-file" v-model.number="activePreviewIndex">
+              <option
+                v-for="(file, index) in files"
+                :key="`${file.name}-${file.size}-${index}`"
+                :value="index"
+              >
+                {{ index + 1 }}. {{ file.name }}
+              </option>
+            </select>
+            <small>
+              Previewing file {{ activePreviewIndex + 1 }} of {{ files.length }}.
+              All selected files will still be merged in the listed order.
+            </small>
+          </div>
+
           <PdfPreview
             :file="previewFile"
             :selectable="isPageSelectionTool"
@@ -155,6 +172,7 @@ const errorMessage = ref("");
 const job = ref(null);
 const pollingTimer = ref(null);
 const pageCount = ref(0);
+const activePreviewIndex = ref(0);
 
 const tool = computed(() => route.params.tool);
 
@@ -219,7 +237,7 @@ const previewFile = computed(() => {
     return null;
   }
 
-  return files.value[0];
+  return files.value[activePreviewIndex.value] || files.value[0];
 });
 
 const showPreview = computed(() => {
@@ -288,6 +306,7 @@ function resetStateForTool(newTool) {
   quality.value = "balanced";
   selectedPagesFromPreview.value = "";
   pageCount.value = 0;
+  activePreviewIndex.value = 0;
   pages.value = newTool === "rotate" ? "all" : "";
   stopPolling();
 }
@@ -298,6 +317,7 @@ function handleFilesSelected(selectedFiles) {
   job.value = null;
   selectedPagesFromPreview.value = "";
   pageCount.value = 0;
+  activePreviewIndex.value = 0;
 
   if (tool.value === "rotate") {
     pages.value = "all";
