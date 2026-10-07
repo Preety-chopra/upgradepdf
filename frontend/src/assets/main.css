@@ -373,6 +373,13 @@ h3 {
   margin: 0 0 14px;
 }
 
+.file-order-help {
+  margin: -8px 0 12px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
 .selected-files li {
   display: flex;
   justify-content: space-between;
@@ -388,6 +395,84 @@ h3 {
 .selected-files small {
   color: var(--muted);
   white-space: nowrap;
+}
+
+.selected-file-item {
+  align-items: center;
+}
+
+.selected-file-item-draggable {
+  cursor: grab;
+}
+
+.selected-file-item-draggable:active {
+  cursor: grabbing;
+}
+
+.selected-file-item-dragging {
+  opacity: 0.45;
+}
+
+.selected-file-item-drag-over {
+  box-shadow: inset 0 2px 0 var(--primary);
+}
+
+.file-drag-handle {
+  flex: 0 0 auto;
+  color: #98a2b3;
+  font-size: 20px;
+  line-height: 1;
+}
+
+.file-order-number {
+  width: 26px;
+  height: 26px;
+  flex: 0 0 26px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: #fff0ef;
+  color: var(--primary);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.selected-file-name {
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.file-order-actions {
+  display: inline-flex;
+  flex: 0 0 auto;
+  gap: 5px;
+}
+
+.file-order-btn {
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--panel);
+  color: var(--text);
+  cursor: pointer;
+  font-weight: 900;
+}
+
+.file-order-btn:hover:not(:disabled) {
+  border-color: rgba(229, 50, 45, 0.5);
+  background: #fff5f5;
+  color: var(--primary);
+}
+
+.file-order-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
 }
 
 .form-group {

@@ -60,6 +60,28 @@ test('merge preview can switch between every selected PDF', async () => {
 });
 
 
+test('merge files can be reordered before upload', async () => {
+  const [dropzone, toolView, fileOrderModule] = await Promise.all([
+    readSource('src/components/FileDropzone.vue'),
+    readSource('src/views/PdfToolView.vue'),
+    import('../src/utils/fileOrder.js')
+  ]);
+
+  const files = [{ name: 'one.pdf' }, { name: 'two.pdf' }, { name: 'three.pdf' }];
+
+  assert.deepEqual(
+    fileOrderModule.moveItem(files, 0, 2).map((file) => file.name),
+    ['two.pdf', 'three.pdf', 'one.pdf']
+  );
+  assert.match(dropzone, /emit\("files-reordered"/);
+  assert.match(dropzone, /:draggable="multiple && files\.length > 1"/);
+  assert.match(dropzone, /Move \$\{file\.name\} up/);
+  assert.match(dropzone, /Move \$\{file\.name\} down/);
+  assert.match(toolView, /@files-reordered="handleFilesReordered"/);
+  assert.match(toolView, /files\.value = reorderedFiles/);
+});
+
+
 test('OCR UI consumes the backend language and progress field names', async () => {
   const source = await readSource('src/pages/OcrTools.vue');
   assert.match(source, /data\.supported/);

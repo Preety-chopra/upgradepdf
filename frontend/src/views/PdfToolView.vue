@@ -18,6 +18,7 @@
         <FileDropzone
           :multiple="config.multiple"
           @files-selected="handleFilesSelected"
+          @files-reordered="handleFilesReordered"
         />
 
         <div v-if="showPreview" class="preview-area">
@@ -324,6 +325,14 @@ function handleFilesSelected(selectedFiles) {
   } else {
     pages.value = "";
   }
+}
+
+function handleFilesReordered(reorderedFiles) {
+  const activeFile = previewFile.value;
+  files.value = reorderedFiles;
+
+  const reorderedPreviewIndex = reorderedFiles.indexOf(activeFile);
+  activePreviewIndex.value = reorderedPreviewIndex >= 0 ? reorderedPreviewIndex : 0;
 }
 
 function handlePageCount(count) {
