@@ -5,10 +5,12 @@ from pathlib import Path
 import fitz
 
 from app.services.pdf_service import (
+    _parse_page_order,
     _parse_pages,
     delete_pages,
     extract_pages,
     merge_pdfs,
+    reorder_pdf,
     rotate_pdf,
 )
 
@@ -33,8 +35,27 @@ class PageSelectionTests(unittest.TestCase):
             with self.subTest(value=value), self.assertRaises(ValueError):
                 _parse_pages(value, 3)
 
+    def test_page_order_requires_an_exact_permutation(self):
+        self.assertEqual(_parse_page_order("3, 1, 2", 3), [2, 0, 1])
+
+        for value in ("", "1,2", "1,2,2", "1,2,4", "one,2,3"):
+            with self.subTest(value=value), self.assertRaises(ValueError):
+                _parse_page_order(value, 3)
+
 
 class PdfToolTests(unittest.TestCase):
+    def test_reorder_saves_pages_in_the_requested_order(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = create_pdf(root / "source.pdf", ["One", "Two", "Three"])
+            output = reorder_pdf(source, root / "reordered.pdf", "3,1,2")
+
+            with fitz.open(output) as document:
+                self.assertEqual(document.page_count, 3)
+                self.assertIn("Three", document[0].get_text())
+                self.assertIn("One", document[1].get_text())
+                self.assertIn("Two", document[2].get_text())
+
     def test_merge_combines_documents_in_order(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

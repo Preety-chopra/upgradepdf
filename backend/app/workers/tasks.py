@@ -12,6 +12,7 @@ from app.services.pdf_service import (
     delete_pages,
     extract_pages,
     merge_pdfs,
+    reorder_pdf,
     rotate_pdf,
 )
 from app.workers.celery_app import celery_app
@@ -180,6 +181,35 @@ def delete_pages_pdf_task(job_id: str, pages: str):
             "job_id": job_id,
             "status": "completed",
             "operation": "delete_pages",
+            "filename": result_path.name,
+            "download_url": f"/api/files/download/{job_id}/{result_path.name}",
+        }
+
+    except Exception as exc:
+        mark_job_failed(job_id=job_id, error_message=str(exc))
+        raise
+
+
+@celery_app.task(name="reorder_pdf_task")
+def reorder_pdf_task(job_id: str, page_order: str):
+    try:
+        mark_job_processing(job_id)
+
+        input_path = Path(settings.UPLOAD_DIR) / job_id / "input.pdf"
+        output_path = Path(settings.OUTPUT_DIR) / job_id / "reordered.pdf"
+
+        result_path = reorder_pdf(
+            input_path=input_path,
+            output_path=output_path,
+            page_order=page_order,
+        )
+
+        mark_job_completed(job_id=job_id, output_filename=result_path.name)
+
+        return {
+            "job_id": job_id,
+            "status": "completed",
+            "operation": "reorder_pages",
             "filename": result_path.name,
             "download_url": f"/api/files/download/{job_id}/{result_path.name}",
         }

@@ -2,7 +2,6 @@
   <main class="module-page">
     <section class="module-hero">
       <div>
-        <p class="eyebrow">Module 6</p>
         <h1>Conversion Tools</h1>
         <p class="hero-copy">
           Convert PDFs, images, Word files, and Excel sheets from one clean workspace.

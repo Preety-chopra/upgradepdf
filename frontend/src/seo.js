@@ -47,6 +47,11 @@ const TOOL_METADATA = {
     description:
       "Remove unwanted pages from a PDF online. Select individual pages or page ranges and download a clean PDF with the remaining pages."
   },
+  "reorder-pages": {
+    title: "Reorder PDF Pages Online",
+    description:
+      "Rearrange PDF pages visually online. Drag page thumbnails into a new order and download the reorganized PDF document."
+  },
   "pdf-to-jpg": {
     title: "PDF to JPG Converter Online",
     description:
@@ -114,6 +119,10 @@ const TOOL_SCHEMA = {
   "delete-pages": {
     name: "Delete PDF Pages",
     features: ["Remove individual PDF pages or page ranges"]
+  },
+  "reorder-pages": {
+    name: "Reorder PDF Pages",
+    features: ["Rearrange pages with visual thumbnails", "Export pages in a custom order"]
   },
   "ocr-pdf": {
     name: "OCR PDF",

@@ -106,3 +106,19 @@ export async function submitDeletePages(file, pages, onUploadProgress) {
 
   return response.data;
 }
+
+export async function submitReorderPages(file, pageOrder, onUploadProgress) {
+  const formData = new FormData();
+
+  formData.append("file", file);
+  formData.append("page_order", pageOrder.join(","));
+
+  const response = await apiClient.post("/api/pdf/reorder-pages", formData, {
+    headers: {
+      "Content-Type": "multipart/form-data"
+    },
+    onUploadProgress
+  });
+
+  return response.data;
+}

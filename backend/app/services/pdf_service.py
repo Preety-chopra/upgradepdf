@@ -224,6 +224,27 @@ def _parse_pages(pages: str, total_pages: int) -> List[int]:
     return sorted(selected_pages)
 
 
+def _parse_page_order(page_order: str, total_pages: int) -> List[int]:
+    """Validate a one-based page permutation and return zero-based indexes."""
+
+    if not page_order or not page_order.strip():
+        raise ValueError("Page order is required.")
+
+    parts = [part.strip() for part in page_order.split(",")]
+    if any(not part.isdigit() for part in parts):
+        raise ValueError("Page order must be a comma-separated list of page numbers.")
+
+    ordered_pages = [int(part) for part in parts]
+    expected_pages = set(range(1, total_pages + 1))
+
+    if len(ordered_pages) != total_pages or set(ordered_pages) != expected_pages:
+        raise ValueError(
+            f"Page order must include every page from 1 to {total_pages} exactly once."
+        )
+
+    return [page_number - 1 for page_number in ordered_pages]
+
+
 def merge_pdfs(input_paths: List[Path], output_path: Path) -> Path:
     """
     Merge multiple PDFs into one PDF.
@@ -342,3 +363,27 @@ def delete_pages(input_path: Path, output_path: Path, pages: str) -> Path:
 
         finally:
             output_doc.close()
+
+
+def reorder_pdf(input_path: Path, output_path: Path, page_order: str) -> Path:
+    """Save every page in the exact order requested by the user."""
+
+    _validate_pdf_path(input_path)
+
+    with fitz.open(input_path) as document:
+        if document.needs_pass:
+            raise ValueError("Password-protected PDFs are not supported.")
+        if document.page_count < 1:
+            raise ValueError("The PDF does not contain any pages.")
+
+        ordered_indexes = _parse_page_order(page_order, document.page_count)
+        document.select(ordered_indexes)
+
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        document.save(output_path, garbage=3, deflate=True)
+
+    with fitz.open(output_path) as result:
+        if result.page_count != len(ordered_indexes):
+            raise ValueError("Reordering produced an invalid PDF.")
+
+    return output_path

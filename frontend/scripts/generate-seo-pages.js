@@ -27,6 +27,12 @@ const routes = [
     params: { tool: "delete-pages" },
     query: {}
   },
+  {
+    name: "pdf-tool",
+    path: "/tools/reorder-pages",
+    params: { tool: "reorder-pages" },
+    query: {}
+  },
   { name: "ocr-pdf", path: "/tools/ocr-pdf", params: {}, query: {} },
   ...[
     "pdf-to-jpg",

@@ -21,7 +21,7 @@
           @files-reordered="handleFilesReordered"
         />
 
-        <div v-if="showPreview" class="preview-area">
+        <div v-if="showPreview && tool !== 'reorder-pages'" class="preview-area">
           <div v-if="files.length > 1" class="preview-file-selector">
             <label for="preview-file">Preview file</label>
             <select id="preview-file" v-model.number="activePreviewIndex">
@@ -46,6 +46,14 @@
             @page-count="handlePageCount"
           />
         </div>
+
+        <PdfPageOrganizer
+          v-if="previewFile && tool === 'reorder-pages'"
+          :file="previewFile"
+          @order-change="handlePageOrderChange"
+          @page-count="handlePageCount"
+          @preview-error="handleOrganizerError"
+        />
 
         <div v-if="tool === 'split' || tool === 'delete-pages'" class="form-group">
           <label for="pages">Pages</label>
@@ -149,12 +157,14 @@ import { useRoute, useRouter } from "vue-router";
 
 import FileDropzone from "../components/FileDropzone.vue";
 import JobStatus from "../components/JobStatus.vue";
+import PdfPageOrganizer from "../components/PdfPageOrganizer.vue";
 import PdfPreview from "../components/PdfPreview.vue";
 import {
   getJob,
   submitCompress,
   submitDeletePages,
   submitMerge,
+  submitReorderPages,
   submitRotate,
   submitSplit
 } from "../services/api";
@@ -174,6 +184,8 @@ const job = ref(null);
 const pollingTimer = ref(null);
 const pageCount = ref(0);
 const activePreviewIndex = ref(0);
+const pageOrder = ref([]);
+const organizerError = ref("");
 
 const tool = computed(() => route.params.tool);
 
@@ -208,6 +220,12 @@ const toolConfigs = {
     description: "Remove selected pages and download the remaining PDF.",
     multiple: false,
     buttonText: "Delete Pages"
+  },
+  "reorder-pages": {
+    title: "Reorder PDF Pages",
+    description: "Arrange PDF pages visually, then export a new document in your chosen order.",
+    multiple: false,
+    buttonText: "Export Reordered PDF"
   }
 };
 
@@ -270,6 +288,10 @@ const isSubmitDisabled = computed(() => {
     return files.value.length < 1 || !quality.value;
   }
 
+  if (tool.value === "reorder-pages") {
+    return files.value.length < 1 || pageOrder.value.length < 1 || Boolean(organizerError.value);
+  }
+
   return true;
 });
 
@@ -308,6 +330,8 @@ function resetStateForTool(newTool) {
   selectedPagesFromPreview.value = "";
   pageCount.value = 0;
   activePreviewIndex.value = 0;
+  pageOrder.value = [];
+  organizerError.value = "";
   pages.value = newTool === "rotate" ? "all" : "";
   stopPolling();
 }
@@ -319,6 +343,8 @@ function handleFilesSelected(selectedFiles) {
   selectedPagesFromPreview.value = "";
   pageCount.value = 0;
   activePreviewIndex.value = 0;
+  pageOrder.value = [];
+  organizerError.value = "";
 
   if (tool.value === "rotate") {
     pages.value = "all";
@@ -337,6 +363,14 @@ function handleFilesReordered(reorderedFiles) {
 
 function handlePageCount(count) {
   pageCount.value = count;
+}
+
+function handlePageOrderChange(order) {
+  pageOrder.value = order;
+}
+
+function handleOrganizerError(message) {
+  organizerError.value = message;
 }
 
 function handleUploadProgress(progressEvent) {
@@ -387,6 +421,14 @@ async function submitTool() {
       response = await submitDeletePages(
         files.value[0],
         pages.value,
+        handleUploadProgress
+      );
+    }
+
+    if (tool.value === "reorder-pages") {
+      response = await submitReorderPages(
+        files.value[0],
+        pageOrder.value,
         handleUploadProgress
       );
     }

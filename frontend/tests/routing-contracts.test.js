@@ -81,6 +81,39 @@ test('merge files can be reordered before upload', async () => {
   assert.match(toolView, /files\.value = reorderedFiles/);
 });
 
+test('reorder pages has a complete UI and API flow', async () => {
+  const [toolView, organizer, api] = await Promise.all([
+    readSource('src/views/PdfToolView.vue'),
+    readSource('src/components/PdfPageOrganizer.vue'),
+    readSource('src/services/api.js')
+  ]);
+
+  assert.match(toolView, /"reorder-pages":\s*\{/);
+  assert.match(toolView, /<PdfPageOrganizer/);
+  assert.match(toolView, /submitReorderPages/);
+  assert.match(organizer, /draggable="true"/);
+  assert.match(organizer, /emit\("order-change"/);
+  assert.match(organizer, /Move page \$\{pageNumber\} earlier/);
+  assert.match(organizer, /Move page \$\{pageNumber\} later/);
+  assert.match(api, /\/api\/pdf\/reorder-pages/);
+  assert.match(api, /page_order/);
+});
+
+test('production and development keep API requests same-origin', async () => {
+  const [productionCompose, developmentCompose, viteConfig] = await Promise.all([
+    readSource('../docker-compose.yml'),
+    readSource('../docker-compose.dev.yml'),
+    readSource('vite.config.js')
+  ]);
+
+  assert.match(productionCompose, /VITE_API_BASE_URL:\s*""/);
+  assert.doesNotMatch(productionCompose, /VITE_API_BASE_URL:\s*\$\{VITE_API_BASE_URL/);
+  assert.match(developmentCompose, /VITE_API_BASE_URL:\s*""/);
+  assert.match(developmentCompose, /VITE_DEV_API_TARGET:\s*http:\/\/api:8000/);
+  assert.match(viteConfig, /["']\/api["']:\s*\{/);
+  assert.match(viteConfig, /target:\s*apiTarget/);
+});
+
 
 test('OCR UI consumes the backend language and progress field names', async () => {
   const source = await readSource('src/pages/OcrTools.vue');
@@ -181,6 +214,7 @@ test('robots and sitemap expose every indexable public route', async () => {
     '/convert',
     '/tools/merge',
     '/tools/compress',
+    '/tools/reorder-pages',
     '/tools/ocr-pdf',
     '/tools/pdf-to-jpg',
     '/tools/pdf-to-word'

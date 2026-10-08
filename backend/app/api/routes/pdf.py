@@ -15,6 +15,7 @@ from app.workers.tasks import (
     compress_pdf_task,
     delete_pages_pdf_task,
     merge_pdf_task,
+    reorder_pdf_task,
     rotate_pdf_task,
     split_pdf_task,
 )
@@ -187,6 +188,36 @@ async def delete_pages_pdf_api(
         "job_id": job_id,
         "task_id": task.id,
         "pages": pages,
+        "job_status_url": f"/api/jobs/{job_id}",
+        "task_status_url": f"/api/files/status/{task.id}",
+    }
+
+
+@router.post("/reorder-pages")
+async def reorder_pages_pdf_api(
+    file: UploadFile = File(...),
+    page_order: str = Form(...),
+    db: Session = Depends(get_db),
+):
+    job_id = create_job_id()
+
+    await save_uploaded_pdf(file=file, job_id=job_id)
+
+    create_job(
+        db=db,
+        job_id=job_id,
+        operation=JobOperation.REORDER_PAGES,
+        input_filename=file.filename,
+    )
+
+    task = reorder_pdf_task.delay(job_id, page_order)
+    set_task_id(db=db, job_id=job_id, task_id=task.id)
+
+    return {
+        "message": "Page reorder job started.",
+        "job_id": job_id,
+        "task_id": task.id,
+        "page_order": page_order,
         "job_status_url": f"/api/jobs/{job_id}",
         "task_status_url": f"/api/files/status/{task.id}",
     }

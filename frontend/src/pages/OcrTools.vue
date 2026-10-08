@@ -2,7 +2,6 @@
   <main class="ocr-page">
     <section class="ocr-hero">
       <div>
-        <p class="eyebrow">Module 7</p>
         <h1>OCR Module</h1>
         <p>
           Upload a scanned PDF, run OCR in a separate worker, and download a searchable PDF with optional text export.
