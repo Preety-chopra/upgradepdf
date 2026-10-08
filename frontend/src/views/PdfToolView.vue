@@ -16,43 +16,10 @@
         </div>
 
         <FileDropzone
+          ref="fileDropzone"
           :multiple="config.multiple"
           @files-selected="handleFilesSelected"
           @files-reordered="handleFilesReordered"
-        />
-
-        <div v-if="showPreview && tool !== 'reorder-pages'" class="preview-area">
-          <div v-if="files.length > 1" class="preview-file-selector">
-            <label for="preview-file">Preview file</label>
-            <select id="preview-file" v-model.number="activePreviewIndex">
-              <option
-                v-for="(file, index) in files"
-                :key="`${file.name}-${file.size}-${index}`"
-                :value="index"
-              >
-                {{ index + 1 }}. {{ file.name }}
-              </option>
-            </select>
-            <small>
-              Previewing file {{ activePreviewIndex + 1 }} of {{ files.length }}.
-              All selected files will still be merged in the listed order.
-            </small>
-          </div>
-
-          <PdfPreview
-            :file="previewFile"
-            :selectable="isPageSelectionTool"
-            v-model="selectedPagesFromPreview"
-            @page-count="handlePageCount"
-          />
-        </div>
-
-        <PdfPageOrganizer
-          v-if="previewFile && tool === 'reorder-pages'"
-          :file="previewFile"
-          @order-change="handlePageOrderChange"
-          @page-count="handlePageCount"
-          @preview-error="handleOrganizerError"
         />
 
         <div v-if="tool === 'split' || tool === 'delete-pages'" class="form-group">
@@ -108,6 +75,23 @@
           </label>
         </fieldset>
 
+        <div v-if="files.length" class="selected-file-actions">
+          <button type="button" class="secondary-btn" @click="isPreviewOpen = true">
+            View uploaded PDF
+          </button>
+          <button
+            type="button"
+            class="primary-btn"
+            :disabled="isSubmitDisabled"
+            @click="submitTool"
+          >
+            {{ isSubmitting ? "Uploading..." : config.buttonText }}
+          </button>
+          <button type="button" class="danger-btn" @click="clearSelectedFiles">
+            Delete {{ files.length > 1 ? "PDFs" : "PDF" }}
+          </button>
+        </div>
+
         <div v-if="pageCount" class="page-count-note">
           Detected {{ pageCount }} page{{ pageCount > 1 ? "s" : "" }} in this PDF.
         </div>
@@ -122,44 +106,155 @@
           </div>
         </div>
 
-        <button
-          type="button"
-          class="primary-btn full-width"
-          :disabled="isSubmitDisabled"
-          @click="submitTool"
+        <div
+          v-if="job && ['pending', 'processing'].includes(job.status)"
+          class="compact-job-status"
+          role="status"
+          aria-live="polite"
         >
-          {{ isSubmitting ? "Uploading..." : config.buttonText }}
-        </button>
+          <span class="preview-spinner" aria-hidden="true"></span>
+          <span>
+            <strong>{{ job.status === "pending" ? "Waiting to start" : "Processing your PDF" }}</strong>
+            <small>You can keep this page open. Your download will appear automatically.</small>
+          </span>
+        </div>
+
+        <div v-if="job?.status === 'completed'" class="completed-download-bar" role="status">
+          <div>
+            <strong>Your PDF is ready</strong>
+            <small>{{ job.output_filename }}</small>
+          </div>
+          <button type="button" class="primary-btn" @click="isResultModalOpen = true">
+            Download PDF
+          </button>
+        </div>
+
+        <p v-if="job?.status === 'failed'" class="error-box">
+          {{ job.error_message || "Processing failed. Please try again." }}
+        </p>
 
         <p v-if="errorMessage" class="error-box">
           {{ errorMessage }}
         </p>
       </div>
-
-      <div class="result-panel">
-        <JobStatus :job="job" />
-
-        <div v-if="!job" class="empty-result">
-          <h3>No job started yet</h3>
-          <p>
-            Upload your PDF file, preview pages, start processing, and the result
-            will appear here.
-          </p>
-        </div>
-      </div>
     </div>
   </section>
+
+  <Teleport to="body">
+    <div
+      v-if="showPreview"
+      class="preview-modal-backdrop"
+      role="presentation"
+      @click.self="isPreviewOpen = false"
+    >
+      <section
+        class="preview-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="preview-modal-title"
+      >
+        <header class="preview-modal-header">
+          <div>
+            <p class="eyebrow">Uploaded PDF preview</p>
+            <h2 id="preview-modal-title">{{ previewFile?.name }}</h2>
+          </div>
+          <button
+            type="button"
+            class="download-modal-close"
+            aria-label="Close PDF preview"
+            @click="isPreviewOpen = false"
+          >
+            &times;
+          </button>
+        </header>
+
+        <div v-if="files.length > 1" class="preview-modal-file-selector">
+          <label for="preview-file">Select file to preview</label>
+          <select id="preview-file" v-model.number="activePreviewIndex">
+            <option
+              v-for="(file, index) in files"
+              :key="`${file.name}-${file.size}-${index}`"
+              :value="index"
+            >
+              {{ index + 1 }}. {{ file.name }}
+            </option>
+          </select>
+          <small>
+            File {{ activePreviewIndex + 1 }} of {{ files.length }}. Processing still uses
+            every selected file in the displayed order.
+          </small>
+        </div>
+
+        <div class="preview-modal-body">
+          <PdfPreview
+            v-if="tool !== 'reorder-pages'"
+            :file="previewFile"
+            :selectable="isPageSelectionTool"
+            v-model="selectedPagesFromPreview"
+            @page-count="handlePageCount"
+          />
+
+          <PdfPageOrganizer
+            v-else
+            :file="previewFile"
+            @order-change="handlePageOrderChange"
+            @page-count="handlePageCount"
+            @preview-error="handleOrganizerError"
+          />
+        </div>
+      </section>
+    </div>
+  </Teleport>
+
+  <Teleport to="body">
+    <div
+      v-if="isResultModalOpen && downloadUrl"
+      class="download-modal-backdrop"
+      role="presentation"
+      @click.self="isResultModalOpen = false"
+    >
+      <section
+        class="download-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="download-modal-title"
+      >
+        <button
+          type="button"
+          class="download-modal-close"
+          aria-label="Close download dialog"
+          @click="isResultModalOpen = false"
+        >
+          &times;
+        </button>
+
+        <div class="download-modal-icon" aria-hidden="true">&#10003;</div>
+        <p class="eyebrow">Processing complete</p>
+        <h2 id="download-modal-title">Your PDF is ready</h2>
+        <p>Your processed file has been created successfully.</p>
+
+        <a
+          class="primary-btn full-width"
+          :href="downloadUrl"
+          download
+          @click="isResultModalOpen = false"
+        >
+          Download {{ job?.output_filename || "processed PDF" }}
+        </a>
+      </section>
+    </div>
+  </Teleport>
 </template>
 
 <script setup>
-import { computed, onBeforeUnmount, ref, watch } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 
 import FileDropzone from "../components/FileDropzone.vue";
-import JobStatus from "../components/JobStatus.vue";
 import PdfPageOrganizer from "../components/PdfPageOrganizer.vue";
 import PdfPreview from "../components/PdfPreview.vue";
 import {
+  buildAbsoluteUrl,
   getJob,
   submitCompress,
   submitDeletePages,
@@ -186,6 +281,9 @@ const pageCount = ref(0);
 const activePreviewIndex = ref(0);
 const pageOrder = ref([]);
 const organizerError = ref("");
+const isResultModalOpen = ref(false);
+const isPreviewOpen = ref(false);
+const fileDropzone = ref(null);
 
 const tool = computed(() => route.params.tool);
 
@@ -260,8 +358,10 @@ const previewFile = computed(() => {
 });
 
 const showPreview = computed(() => {
-  return Boolean(previewFile.value);
+  return isPreviewOpen.value && Boolean(previewFile.value);
 });
+
+const downloadUrl = computed(() => buildAbsoluteUrl(job.value?.download_url));
 
 const isPageSelectionTool = computed(() => {
   return ["split", "rotate", "delete-pages"].includes(tool.value);
@@ -316,8 +416,22 @@ watch(selectedPagesFromPreview, (value) => {
   pages.value = value;
 });
 
+watch(
+  () => job.value?.status,
+  (status) => {
+    if (status === "completed") {
+      isResultModalOpen.value = true;
+    }
+  }
+);
+
+onMounted(() => {
+  window.addEventListener("keydown", handleModalKeydown);
+});
+
 onBeforeUnmount(() => {
   stopPolling();
+  window.removeEventListener("keydown", handleModalKeydown);
 });
 
 function resetStateForTool(newTool) {
@@ -332,6 +446,8 @@ function resetStateForTool(newTool) {
   activePreviewIndex.value = 0;
   pageOrder.value = [];
   organizerError.value = "";
+  isResultModalOpen.value = false;
+  isPreviewOpen.value = false;
   pages.value = newTool === "rotate" ? "all" : "";
   stopPolling();
 }
@@ -345,6 +461,8 @@ function handleFilesSelected(selectedFiles) {
   activePreviewIndex.value = 0;
   pageOrder.value = [];
   organizerError.value = "";
+  isResultModalOpen.value = false;
+  isPreviewOpen.value = false;
 
   if (tool.value === "rotate") {
     pages.value = "all";
@@ -363,6 +481,10 @@ function handleFilesReordered(reorderedFiles) {
 
 function handlePageCount(count) {
   pageCount.value = count;
+}
+
+function clearSelectedFiles() {
+  fileDropzone.value?.clearFiles();
 }
 
 function handlePageOrderChange(order) {
@@ -388,6 +510,7 @@ async function submitTool() {
   isSubmitting.value = true;
   uploadProgress.value = 0;
   job.value = null;
+  isResultModalOpen.value = false;
 
   try {
     let response;
@@ -476,6 +599,13 @@ function stopPolling() {
   if (pollingTimer.value) {
     window.clearInterval(pollingTimer.value);
     pollingTimer.value = null;
+  }
+}
+
+function handleModalKeydown(event) {
+  if (event.key === "Escape") {
+    isResultModalOpen.value = false;
+    isPreviewOpen.value = false;
   }
 }
 </script>

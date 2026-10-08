@@ -59,6 +59,37 @@ test('merge preview can switch between every selected PDF', async () => {
   assert.match(source, /files\.value\[activePreviewIndex\.value\]\s*\|\|\s*files\.value\[0\]/);
 });
 
+test('uploaded PDFs stay collapsed until the user requests a preview', async () => {
+  const [toolView, dropzone] = await Promise.all([
+    readSource('src/views/PdfToolView.vue'),
+    readSource('src/components/FileDropzone.vue')
+  ]);
+
+  assert.match(toolView, /const isPreviewOpen = ref\(false\)/);
+  assert.match(toolView, /isPreviewOpen\.value && Boolean\(previewFile\.value\)/);
+  assert.match(toolView, /View uploaded PDF/);
+  assert.match(toolView, /class="selected-file-actions"/);
+  assert.match(toolView, /config\.buttonText/);
+  assert.match(toolView, /Delete \{\{ files\.length > 1 \? "PDFs" : "PDF" \}\}/);
+  assert.match(dropzone, /defineExpose\(\{ clearFiles \}\)/);
+});
+
+test('uploaded PDF previews open in a modal with an in-modal file selector', async () => {
+  const [toolView, styles] = await Promise.all([
+    readSource('src/views/PdfToolView.vue'),
+    readSource('src/assets/main.css')
+  ]);
+
+  assert.match(toolView, /class="preview-modal-backdrop"/);
+  assert.match(toolView, /class="preview-modal"/);
+  assert.match(toolView, /aria-modal="true"/);
+  assert.match(toolView, /Select file to preview/);
+  assert.match(toolView, /v-model\.number="activePreviewIndex"/);
+  assert.match(toolView, /@click\.self="isPreviewOpen = false"/);
+  assert.match(styles, /\.preview-modal\s*\{[\s\S]*?max-height:\s*calc\(100vh - 40px\)/);
+  assert.match(styles, /\.preview-modal-backdrop\s*\{[\s\S]*?z-index:\s*3100/);
+});
+
 
 test('merge files can be reordered before upload', async () => {
   const [dropzone, toolView, fileOrderModule] = await Promise.all([
@@ -81,6 +112,14 @@ test('merge files can be reordered before upload', async () => {
   assert.match(toolView, /files\.value = reorderedFiles/);
 });
 
+test('multi-file tools can append more PDFs to the selected list', async () => {
+  const dropzone = await readSource('src/components/FileDropzone.vue');
+
+  assert.match(dropzone, /v-if="multiple"[\s\S]*?Add more files/);
+  assert.match(dropzone, /files\.value = \[\.\.\.files\.value, \.\.\.pdfFiles\]/);
+  assert.match(dropzone, /fileInput\.value\.value = ""/);
+});
+
 test('reorder pages has a complete UI and API flow', async () => {
   const [toolView, organizer, api] = await Promise.all([
     readSource('src/views/PdfToolView.vue'),
@@ -97,6 +136,41 @@ test('reorder pages has a complete UI and API flow', async () => {
   assert.match(organizer, /Move page \$\{pageNumber\} later/);
   assert.match(api, /\/api\/pdf\/reorder-pages/);
   assert.match(api, /page_order/);
+});
+
+test('PDF tools use a centered workspace and a completion download modal', async () => {
+  const [toolView, styles] = await Promise.all([
+    readSource('src/views/PdfToolView.vue'),
+    readSource('src/assets/main.css')
+  ]);
+
+  assert.doesNotMatch(toolView, /<JobStatus/);
+  assert.doesNotMatch(toolView, /class="result-panel"/);
+  assert.match(toolView, /class="download-modal"/);
+  assert.match(toolView, /status === "completed"/);
+  assert.match(toolView, /isResultModalOpen\.value = true/);
+  assert.match(styles, /\.tool-page\s*\{[\s\S]*?max-width:\s*1080px/);
+  assert.match(styles, /\.tool-layout\s*\{\s*display:\s*block/);
+});
+
+test('every routed page includes a right rail ad and an ad below the workspace', async () => {
+  const [app, adSlot, styles] = await Promise.all([
+    readSource('src/app.vue'),
+    readSource('src/components/AdSlot.vue'),
+    readSource('src/assets/main.css')
+  ]);
+
+  assert.match(app, /<AdSlot placement="page-left" \/>/);
+  assert.match(app, /<RouterView \/>[\s\S]*<AdSlot placement="page-right"[\s\S]*?\/>/);
+  assert.match(adSlot, /data-ad-placement="placement"/);
+  assert.match(adSlot, /aria-label="Advertisement"/);
+  assert.match(adSlot, /v-show="hasAd"/);
+  assert.match(adSlot, /new MutationObserver\(detectAdAvailability\)/);
+  assert.match(adSlot, /data-ad-status="filled"/);
+  assert.match(app, /'has-right-ad': rightAdAvailable/);
+  assert.match(styles, /\.page-ad-layout\.has-right-ad\s*\{[\s\S]*?grid-template-columns/);
+  assert.match(styles, /\.ad-slot\[data-ad-placement="page-left"\][\s\S]*?grid-row:\s*2/);
+  assert.match(styles, /\.ad-slot\[data-ad-placement="page-right"\][\s\S]*?grid-column:\s*2/);
 });
 
 test('production and development keep API requests same-origin', async () => {

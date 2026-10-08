@@ -75,9 +75,16 @@
       </li>
     </ul>
 
-    <button type="button" class="text-btn" @click="clearFiles">
-      Clear selected files
+    <button
+      v-if="multiple"
+      type="button"
+      class="add-more-files-btn"
+      @click="openFilePicker"
+    >
+      <span aria-hidden="true">+</span>
+      Add more files
     </button>
+
   </div>
 </template>
 
@@ -102,6 +109,10 @@ const draggedIndex = ref(null);
 const dragOverIndex = ref(null);
 
 function openFilePicker() {
+  if (fileInput.value) {
+    fileInput.value.value = "";
+  }
+
   fileInput.value?.click();
 }
 
@@ -124,6 +135,8 @@ function setFiles(selectedFiles) {
 
   if (!props.multiple && pdfFiles.length > 1) {
     files.value = [pdfFiles[0]];
+  } else if (props.multiple) {
+    files.value = [...files.value, ...pdfFiles];
   } else {
     files.value = pdfFiles;
   }
@@ -140,6 +153,8 @@ function clearFiles() {
 
   emit("files-selected", []);
 }
+
+defineExpose({ clearFiles });
 
 function moveFile(fromIndex, toIndex) {
   const reorderedFiles = moveItem(files.value, fromIndex, toIndex);

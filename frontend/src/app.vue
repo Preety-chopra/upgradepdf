@@ -27,11 +27,22 @@
 
 <template>
   <AppHeader />
-  <RouterView />
+  <div class="page-ad-layout" :class="{ 'has-right-ad': rightAdAvailable }">
+    <AdSlot placement="page-left" />
+    <div class="page-route-content">
+      <RouterView />
+    </div>
+    <AdSlot placement="page-right" @availability-change="rightAdAvailable = $event" />
+  </div>
 </template>
 
 <script setup>
+import { ref } from "vue";
+
+import AdSlot from "./components/AdSlot.vue";
 import AppHeader from "./components/AppHeader.vue";
+
+const rightAdAvailable = ref(false);
 </script>
 
 <style>
