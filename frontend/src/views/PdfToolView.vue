@@ -12,7 +12,7 @@
 
         <div class="privacy-note">
           Your files are processed in a secure, isolated environment and deleted
-          automatically after 60 minutes.
+          automatically.
         </div>
 
         <FileDropzone

@@ -1,10 +1,18 @@
 ﻿<template>
   <main class="home-page">
     <section class="hero-section">
-      <h1>UpgradePDF</h1>
+      <h2>PDF Problems? Consider Them Solved.</h2>
+      <!-- <p class="hero-tagline">Your PDFs. Your Way. Zero Hassle.</p> -->
+      <p class="hero-description">
+        Merge, split, compress, convert, edit, and manage PDFs online with
+        <strong>UpgradePDF</strong>. Fast, simple, and 100% FREE PDF tools.
+      </p>
+      <p class="trust-line">Built for Privacy. Designed for Trust.</p>
+      <!-- <a class="hero-cta" href="#pdf-tools">Start Using Free PDF Tools Now <span aria-hidden="true">→</span></a> -->
+      <a class="hero-cta" href="#pdf-tools">Start Using Free PDF Tools Now</a>
     </section>
 
-    <section class="tools-grid">
+    <section id="pdf-tools" class="tools-grid" aria-label="PDF tools">
       <RouterLink class="tool-card" to="/tools/merge">
         <span class="tool-icon">🔗</span>
         <h3>Merge PDF</h3>
@@ -101,7 +109,7 @@
 <style scoped>
 .home-page {
   min-height: 100vh;
-  padding: 42px 24px 70px;
+  padding: 26px 24px 70px;
   background:
     radial-gradient(circle at top left, rgba(37, 99, 235, 0.12), transparent 30%),
     linear-gradient(180deg, #f8fafc 0%, #eef2f7 100%);
@@ -109,8 +117,8 @@
 }
 
 .hero-section {
-  max-width: 1120px;
-  margin: 0 auto 34px;
+  max-width: 1080px;
+  margin: 0 auto 30px;
   text-align: center;
 }
 
@@ -125,13 +133,69 @@
 
 .hero-section h1 {
   margin: 0;
-  font-size: clamp(36px, 6vw, 62px);
+  font-size: clamp(32px, 4vw, 48px);
   letter-spacing: -0.05em;
+  line-height: 1.05;
 }
 
 .hero-section p {
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.hero-tagline {
+  margin-top: 10px;
+  margin-bottom: 0;
+  color: #2563eb;
+  font-size: clamp(18px, 2vw, 22px);
+  font-weight: 800;
+}
+
+.hero-description {
+  max-width: 980px;
+  margin-top: 10px;
+  margin-bottom: 0;
   color: #64748b;
-  font-size: 18px;
+  font-size: 17px;
+  line-height: 1.5;
+}
+
+.hero-description strong {
+  color: #334155;
+}
+
+.trust-line {
+  margin-top: 10px;
+  margin-bottom: 0;
+  color: #0f172a;
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.hero-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 16px;
+  padding: 12px 20px;
+  border-radius: 999px;
+  background: #2563eb;
+  box-shadow: 0 12px 28px rgba(37, 99, 235, 0.28);
+  color: #ffffff;
+  font-weight: 800;
+  text-decoration: none;
+  transition: 0.2s ease;
+}
+
+.hero-cta:hover {
+  background: #1d4ed8;
+  box-shadow: 0 16px 34px rgba(37, 99, 235, 0.34);
+  transform: translateY(-2px);
+}
+
+.hero-cta:focus-visible {
+  outline: 3px solid rgba(37, 99, 235, 0.35);
+  outline-offset: 4px;
 }
 
 .tools-grid {
