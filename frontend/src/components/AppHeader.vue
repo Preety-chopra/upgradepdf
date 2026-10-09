@@ -37,7 +37,13 @@
           :class="{ active: isConvertTool }"
         >
           CONVERT PDF
-          <span class="chevron">⌄</span>
+          <svg
+            class="chevron"
+            viewBox="0 0 12 8"
+            aria-hidden="true"
+          >
+            <path d="M1 1.5 6 6.5l5-5" />
+          </svg>
         </button>
 
         <div class="convert-menu dropdown-panel">
@@ -74,7 +80,13 @@
       <div class="nav-dropdown all-tools-wrapper">
         <button class="nav-link dropdown-button" :class="{ active: isAnyPdfTool }">
           ALL PDF TOOLS
-          <span class="chevron">⌄</span>
+          <svg
+            class="chevron"
+            viewBox="0 0 12 8"
+            aria-hidden="true"
+          >
+            <path d="M1 1.5 6 6.5l5-5" />
+          </svg>
         </button>
 
         <div class="all-tools-menu dropdown-panel">
@@ -199,8 +211,15 @@ const isAnyPdfTool = computed(() => {
 }
 
 .chevron {
-  font-size: 18px;
-  line-height: 1;
+  width: 11px;
+  height: 7px;
+  flex: 0 0 auto;
+  display: block;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.75;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .nav-dropdown {
