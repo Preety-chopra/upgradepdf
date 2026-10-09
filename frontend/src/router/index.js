@@ -1,11 +1,11 @@
 ﻿import { createRouter, createWebHistory } from "vue-router";
 
-import HomeView from "../views/HomeView.vue";
-import PdfToolView from "../views/PdfToolView.vue";
-
-import ConversionTools from "../pages/ConversionTools.vue";
-import OcrTools from "../pages/OcrTools.vue";
 import { applySeoMetadata } from "../seo";
+
+const HomeView = () => import("../views/HomeView.vue");
+const PdfToolView = () => import("../views/PdfToolView.vue");
+const ConversionTools = () => import("../pages/ConversionTools.vue");
+const OcrTools = () => import("../pages/OcrTools.vue");
 
 const routes = [
   {

@@ -206,6 +206,140 @@ h3 {
   color: var(--text);
 }
 
+.seo-content {
+  width: min(1120px, calc(100% - 32px));
+  margin: 56px auto 24px;
+  padding: clamp(24px, 5vw, 48px);
+  border: 1px solid #dbe4f0;
+  border-radius: 28px;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 18px 46px rgba(15, 23, 42, 0.07);
+  color: #0f172a;
+}
+
+.seo-content__intro {
+  max-width: 780px;
+  margin-bottom: 28px;
+}
+
+.seo-content__eyebrow {
+  margin: 0 0 8px;
+  color: #2563eb;
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.seo-content h2,
+.seo-content h3,
+.seo-content p {
+  margin-top: 0;
+}
+
+.seo-content__intro h2 {
+  margin-bottom: 0;
+  font-size: clamp(1.75rem, 4vw, 2.6rem);
+  line-height: 1.12;
+  letter-spacing: -0.035em;
+}
+
+.seo-content__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.seo-content article,
+.seo-content__related {
+  padding: 22px;
+  border: 1px solid #e2e8f0;
+  border-radius: 18px;
+  background: #f8fafc;
+}
+
+.seo-content__about {
+  grid-column: 1 / -1;
+}
+
+.seo-content h2 {
+  margin-bottom: 12px;
+  font-size: 1.28rem;
+}
+
+.seo-content h3 {
+  margin-bottom: 8px;
+  font-size: 1.03rem;
+  line-height: 1.35;
+}
+
+.seo-content p,
+.seo-content li {
+  color: #475569;
+  line-height: 1.72;
+}
+
+.seo-content p:last-child,
+.seo-content li:last-child {
+  margin-bottom: 0;
+}
+
+.seo-content ol,
+.seo-content ul {
+  margin: 0;
+  padding-left: 1.25rem;
+}
+
+.seo-content__faqs,
+.seo-content__related {
+  margin-top: 28px;
+}
+
+.seo-content__faq-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.seo-content__related div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.seo-content__related a {
+  display: inline-flex;
+  padding: 9px 13px;
+  border-radius: 999px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.seo-content__related a:hover {
+  background: #dbeafe;
+}
+
+@media (max-width: 720px) {
+  .seo-content {
+    width: min(100% - 24px, 1120px);
+    margin-top: 36px;
+    padding: 22px 16px;
+    border-radius: 22px;
+  }
+
+  .seo-content__grid,
+  .seo-content__faq-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .seo-content article,
+  .seo-content__related {
+    padding: 18px;
+  }
+}
+
 .danger-btn {
   min-height: 50px;
   border: 1px solid #fecaca;

@@ -140,6 +140,8 @@
     </div>
   </section>
 
+  <SeoContentSection />
+
   <Teleport to="body">
     <div
       v-if="showPreview"
@@ -253,6 +255,7 @@ import { useRoute, useRouter } from "vue-router";
 import FileDropzone from "../components/FileDropzone.vue";
 import PdfPageOrganizer from "../components/PdfPageOrganizer.vue";
 import PdfPreview from "../components/PdfPreview.vue";
+import SeoContentSection from "../components/SeoContentSection.vue";
 import {
   buildAbsoluteUrl,
   getJob,

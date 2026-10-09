@@ -1,7 +1,7 @@
 ﻿<template>
   <main class="home-page">
     <section class="hero-section">
-      <h2>PDF Problems? Consider Them Solved.</h2>
+      <h1>PDF Problems? Consider Them Solved.</h1>
       <!-- <p class="hero-tagline">Your PDFs. Your Way. Zero Hassle.</p> -->
       <p class="hero-description">
         Merge, split, compress, convert, edit, and manage PDFs online with
@@ -103,8 +103,14 @@
         <p>Export OCR text separately as a text file.</p>
       </RouterLink>
     </section>
+
+    <SeoContentSection page-key="home" />
   </main>
 </template>
+
+<script setup>
+import SeoContentSection from "../components/SeoContentSection.vue";
+</script>
 
 <style scoped>
 .home-page {

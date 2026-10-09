@@ -2,7 +2,7 @@
   <main class="module-page">
     <section class="module-hero">
       <div>
-        <h1>Conversion Tools</h1>
+        <h1>{{ pageHeading }}</h1>
         <p class="hero-copy">
           Convert PDFs, images, Word files, and Excel sheets from one clean workspace.
         </p>
@@ -111,12 +111,17 @@
         </div>
       </section>
     </section>
+
+    <SeoContentSection :page-key="seoPageKey" />
   </main>
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from "vue";
+import { ref, computed, watch } from "vue";
 import { useRoute } from "vue-router";
+
+import SeoContentSection from "../components/SeoContentSection.vue";
+import { getSeoContent } from "../data/seoContent";
 
 const API_BASE = (
   import.meta.env.VITE_API_BASE_URL ||
@@ -218,15 +223,6 @@ const tools = [
     defaultName: 'tables.csv'
   }
 ];
-const route = useRoute();
-onMounted(() => {
-  const typeFromDashboard = route.query.type;
-
-  if (tools.some((tool) => tool.key === typeFromDashboard)) {
-    selectedKey.value = typeFromDashboard;
-  }
-});
-
 const selectedKey = ref('pdf-to-jpg');
 const files = ref([]);
 const loading = ref(false);
@@ -236,8 +232,36 @@ const isDragging = ref(false);
 const pdfWordMode = ref('auto');
 const fileInput = ref(null);
 
+const route = useRoute();
+const routeToolAliases = {
+  'jpg-to-pdf': 'images-to-pdf',
+  'png-to-pdf': 'images-to-pdf'
+};
+
 const selectedTool = computed(() => tools.find((tool) => tool.key === selectedKey.value) || tools[0]);
 const canConvert = computed(() => files.value.length > 0 && !loading.value);
+const seoPageKey = computed(() => route.params.tool || route.query.type || 'convert');
+const pageHeading = computed(() => getSeoContent(seoPageKey.value).heading);
+
+watch(
+  () => [route.params.tool, route.query.type],
+  ([pathTool, queryTool]) => {
+    const typeFromDashboard = queryTool;
+    const requestedTool = pathTool || typeFromDashboard;
+    const implementedTool = routeToolAliases[requestedTool] || requestedTool;
+
+    if (!pathTool && tools.some((tool) => tool.key === typeFromDashboard)) {
+      selectedKey.value = typeFromDashboard;
+    } else if (tools.some((tool) => tool.key === implementedTool)) {
+      selectedKey.value = implementedTool;
+    } else if (route.name === 'convert') {
+      selectedKey.value = 'pdf-to-jpg';
+    }
+
+    resetForm();
+  },
+  { immediate: true }
+);
 
 function selectTool(key) {
   selectedKey.value = key;

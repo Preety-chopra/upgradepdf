@@ -114,11 +114,15 @@
         </div>
       </aside>
     </section>
+
+    <SeoContentSection page-key="ocr-pdf" />
   </main>
 </template>
 
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+
+import SeoContentSection from "../components/SeoContentSection.vue";
 
 const API_BASE = (
   import.meta.env.VITE_API_BASE_URL ||

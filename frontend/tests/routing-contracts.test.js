@@ -296,3 +296,35 @@ test('robots and sitemap expose every indexable public route', async () => {
     assert.match(sitemap, new RegExp(`<loc>https://upgradepdf\\.com${path}</loc>`));
   }
 });
+
+test('every public page has reusable, prerendered SEO content in the target word range', async () => {
+  const [component, generator, seoContentModule] = await Promise.all([
+    readSource('src/components/SeoContentSection.vue'),
+    readSource('scripts/generate-seo-pages.js'),
+    import('../src/data/seoContent.js')
+  ]);
+
+  assert.match(component, /About the Tool/);
+  assert.match(component, /How to Use/);
+  assert.match(component, /Key Benefits/);
+  assert.match(component, /Common Use Cases/);
+  assert.match(component, /Frequently Asked Questions/);
+  assert.match(component, /Related PDF Tools/);
+  assert.match(generator, /renderSeoContent\(route\)/);
+  assert.match(generator, /data-prerendered-page/);
+
+  const expectedKeys = [
+    'home', 'convert', 'merge', 'split', 'compress', 'rotate', 'delete-pages',
+    'reorder-pages', 'ocr-pdf', 'pdf-to-jpg', 'images-to-pdf', 'jpg-to-pdf',
+    'png-to-pdf', 'word-to-pdf', 'excel-to-pdf', 'pdf-to-word',
+    'pdf-to-excel', 'pdf-to-csv'
+  ];
+
+  assert.deepEqual(Object.keys(seoContentModule.SEO_CONTENT), expectedKeys);
+  for (const [key, content] of Object.entries(seoContentModule.SEO_CONTENT)) {
+    const words = seoContentModule.countSeoWords(content);
+    assert.ok(words >= 250 && words <= 450, `${key} has ${words} SEO words`);
+    assert.ok(content.faqs.length >= 4 && content.faqs.length <= 6);
+    assert.ok(content.related.length >= 3);
+  }
+});
