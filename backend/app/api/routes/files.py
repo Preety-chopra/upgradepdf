@@ -7,11 +7,18 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.core.database import get_db
-from app.models.job import JobStatus
+from app.models.job import Job, JobOperation, JobStatus
 from app.services.job_service import get_job_by_id
 from app.workers.celery_app import celery_app
 
 router = APIRouter()
+
+
+def _download_filename(job: Job, stored_filename: str) -> str:
+    if job.operation == JobOperation.COMPRESS and job.input_filename:
+        return job.input_filename
+
+    return stored_filename
 
 
 @router.get("/status/{task_id}")
@@ -80,6 +87,6 @@ def download_processed_file(
 
     return FileResponse(
         path=file_path,
-        filename=filename,
+        filename=_download_filename(job, filename),
         media_type="application/pdf",
     )
