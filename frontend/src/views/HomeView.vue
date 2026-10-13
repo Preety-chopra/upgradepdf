@@ -272,4 +272,100 @@ import SeoContentSection from "../components/SeoContentSection.vue";
   border-color: #a5f3fc;
   background: linear-gradient(180deg, #ffffff 0%, #ecfeff 100%);
 }
+
+@media (max-width: 640px) {
+  .home-page {
+    padding: 20px 12px 44px;
+  }
+
+  .hero-section {
+    margin-bottom: 22px;
+  }
+
+  .hero-section h1 {
+    font-size: clamp(30px, 9vw, 38px);
+    line-height: 1.08;
+  }
+
+  .hero-description {
+    margin-top: 12px;
+    font-size: 15px;
+    line-height: 1.45;
+  }
+
+  .trust-line {
+    margin-top: 8px;
+    font-size: 13px;
+  }
+
+  .hero-cta {
+    width: 100%;
+    min-height: 46px;
+    justify-content: center;
+    margin-top: 14px;
+    padding: 10px 16px;
+    font-size: 14px;
+  }
+
+  .tools-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .tool-card {
+    min-width: 0;
+    min-height: 148px;
+    padding: 14px;
+    border-radius: 17px;
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.07);
+  }
+
+  .tool-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 28px rgba(15, 23, 42, 0.1);
+  }
+
+  .tool-icon {
+    width: 38px;
+    height: 38px;
+    margin-bottom: 10px;
+    border-radius: 12px;
+    font-size: 19px;
+  }
+
+  .tool-card h3 {
+    margin-bottom: 5px;
+    font-size: 16px;
+    line-height: 1.15;
+  }
+
+  .tool-card p {
+    display: -webkit-box;
+    overflow: hidden;
+    font-size: 12.5px;
+    line-height: 1.35;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+}
+
+@media (max-width: 360px) {
+  .home-page {
+    padding-right: 10px;
+    padding-left: 10px;
+  }
+
+  .tools-grid {
+    gap: 8px;
+  }
+
+  .tool-card {
+    min-height: 142px;
+    padding: 12px;
+  }
+
+  .tool-card h3 {
+    font-size: 15px;
+  }
+}
 </style>
