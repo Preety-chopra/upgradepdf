@@ -22,6 +22,7 @@ class JobOperation(str, Enum):
     ROTATE = "rotate"
     DELETE_PAGES = "delete_pages"
     COMPRESS = "compress"
+    OPTIMIZE = "optimize"
     REORDER_PAGES = "reorder_pages"
 
 

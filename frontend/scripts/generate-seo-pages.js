@@ -21,6 +21,7 @@ const routes = [
   { name: "pdf-tool", path: "/tools/merge", params: { tool: "merge" }, query: {} },
   { name: "pdf-tool", path: "/tools/split", params: { tool: "split" }, query: {} },
   { name: "pdf-tool", path: "/tools/compress", params: { tool: "compress" }, query: {} },
+  { name: "pdf-tool", path: "/tools/optimize", params: { tool: "optimize" }, query: {} },
   { name: "pdf-tool", path: "/tools/rotate", params: { tool: "rotate" }, query: {} },
   {
     name: "pdf-tool",

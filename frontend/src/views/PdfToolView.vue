@@ -75,6 +75,30 @@
           </label>
         </fieldset>
 
+        <fieldset v-if="tool === 'optimize'" class="optimization-options">
+          <legend>Optimization tasks</legend>
+          <p class="field-help">
+            Select one or more scan improvements. Options are applied from cleanup to text enhancement.
+          </p>
+
+          <label
+            v-for="option in optimizationOptions"
+            :key="option.value"
+            class="optimization-option"
+            :class="{ selected: selectedOptimizations.includes(option.value) }"
+          >
+            <input v-model="selectedOptimizations" type="checkbox" :value="option.value" />
+            <span>
+              <strong>{{ option.label }}</strong>
+              <small>{{ option.description }}</small>
+            </span>
+          </label>
+
+          <p v-if="!selectedOptimizations.length" class="option-warning" role="alert">
+            Select at least one optimization task.
+          </p>
+        </fieldset>
+
         <div v-if="files.length" class="selected-file-actions">
           <button type="button" class="secondary-btn" @click="isPreviewOpen = true">
             View uploaded PDF
@@ -262,6 +286,7 @@ import {
   submitCompress,
   submitDeletePages,
   submitMerge,
+  submitOptimize,
   submitReorderPages,
   submitRotate,
   submitSplit
@@ -275,6 +300,7 @@ const pages = ref("");
 const selectedPagesFromPreview = ref("");
 const angle = ref("90");
 const quality = ref("balanced");
+const selectedOptimizations = ref(["deskew", "whiten_background", "darken_text"]);
 const isSubmitting = ref(false);
 const uploadProgress = ref(0);
 const errorMessage = ref("");
@@ -297,6 +323,13 @@ const toolConfigs = {
       "Reduce PDF file size while preserving text, links, forms, and page layout.",
     multiple: false,
     buttonText: "Compress PDF"
+  },
+  optimize: {
+    title: "Optimize PDF",
+    description:
+      "Clean scanned pages, correct skew, improve contrast, and make recognized text searchable.",
+    multiple: false,
+    buttonText: "Optimize PDF"
   },
   merge: {
     title: "Merge PDF",
@@ -348,6 +381,39 @@ const compressionOptions = [
   }
 ];
 
+const optimizationOptions = [
+  {
+    value: "vectorize_text",
+    label: "Recognize and vectorize text",
+    description: "Add a searchable, selectable OCR text layer to scanned pages."
+  },
+  {
+    value: "invert_colors",
+    label: "Invert colors",
+    description: "Swap light and dark colors, including black and white."
+  },
+  {
+    value: "deskew",
+    label: "Align scanned text automatically",
+    description: "Straighten pages that were scanned at a slight angle."
+  },
+  {
+    value: "whiten_background",
+    label: "Optimize background",
+    description: "Turn light shades and yellowish paper closer to white."
+  },
+  {
+    value: "darken_text",
+    label: "Darken text",
+    description: "Turn dark text tones black to improve readability."
+  },
+  {
+    value: "enhance_font_weight",
+    label: "Enhance font weight",
+    description: "Thicken faint or thin strokes for clearer text."
+  }
+];
+
 const config = computed(() => {
   return toolConfigs[tool.value] || toolConfigs.merge;
 });
@@ -389,6 +455,10 @@ const isSubmitDisabled = computed(() => {
 
   if (tool.value === "compress") {
     return files.value.length < 1 || !quality.value;
+  }
+
+  if (tool.value === "optimize") {
+    return files.value.length < 1 || selectedOptimizations.value.length < 1;
   }
 
   if (tool.value === "reorder-pages") {
@@ -444,6 +514,7 @@ function resetStateForTool(newTool) {
   uploadProgress.value = 0;
   angle.value = "90";
   quality.value = "balanced";
+  selectedOptimizations.value = ["deskew", "whiten_background", "darken_text"];
   selectedPagesFromPreview.value = "";
   pageCount.value = 0;
   activePreviewIndex.value = 0;
@@ -526,6 +597,14 @@ async function submitTool() {
       response = await submitCompress(
         files.value[0],
         quality.value,
+        handleUploadProgress
+      );
+    }
+
+    if (tool.value === "optimize") {
+      response = await submitOptimize(
+        files.value[0],
+        selectedOptimizations.value,
         handleUploadProgress
       );
     }

@@ -31,6 +31,12 @@
         <p>Reduce file size while keeping readable quality.</p>
       </RouterLink>
 
+      <RouterLink class="tool-card" to="/tools/optimize">
+        <span class="tool-icon">✨</span>
+        <h3>Optimize PDF</h3>
+        <p>Deskew scans, clean backgrounds, and improve text readability.</p>
+      </RouterLink>
+
       <RouterLink class="tool-card" to="/tools/delete-pages">
         <span class="tool-icon">🗑️</span>
         <h3>Delete Pages</h3>

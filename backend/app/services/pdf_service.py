@@ -1,16 +1,28 @@
 import io
+import math
 import shutil
 from pathlib import Path
 from typing import Dict, List, Set
 
 import fitz  # PyMuPDF
-from PIL import Image
+import pytesseract
+from PIL import Image, ImageChops, ImageFilter, ImageOps
+from pytesseract import Output
 
 
 COMPRESSION_PROFILES: Dict[str, dict] = {
     "light": {"max_dimension": 2400, "jpeg_quality": 84},
     "balanced": {"max_dimension": 1800, "jpeg_quality": 72},
     "strong": {"max_dimension": 1200, "jpeg_quality": 55},
+}
+
+OPTIMIZATION_OPTION_NAMES = {
+    "vectorize_text",
+    "invert_colors",
+    "deskew",
+    "whiten_background",
+    "darken_text",
+    "enhance_font_weight",
 }
 
 
@@ -154,6 +166,179 @@ def compress_pdf(input_path: Path, output_path: Path, quality: str) -> Path:
         return output_path
     finally:
         working_path.unlink(missing_ok=True)
+
+
+def _deskew_scan(image: Image.Image, max_angle: float = 5.0) -> Image.Image:
+    """Correct small scan angles using horizontal text-line projection."""
+
+    grayscale = ImageOps.grayscale(image)
+    scale = min(1.0, 1000 / max(grayscale.size))
+    if scale < 1:
+        grayscale = grayscale.resize(
+            (max(1, round(grayscale.width * scale)), max(1, round(grayscale.height * scale))),
+            Image.Resampling.BILINEAR,
+        )
+
+    ink = grayscale.point(lambda value: 255 if value < 190 else 0)
+    best_angle = 0.0
+    best_score = -1
+    steps = round(max_angle * 2)
+
+    for step in range(-steps, steps + 1):
+        angle = step / 2
+        candidate = ink.rotate(
+            angle,
+            resample=Image.Resampling.BILINEAR,
+            expand=False,
+            fillcolor=0,
+        )
+        projection = candidate.resize((1, candidate.height), Image.Resampling.BOX)
+        score = sum(value * value for value in projection.getdata())
+
+        if score > best_score:
+            best_score = score
+            best_angle = angle
+
+    if math.isclose(best_angle, 0.0, abs_tol=0.2):
+        return image
+
+    return image.rotate(
+        best_angle,
+        resample=Image.Resampling.BICUBIC,
+        expand=False,
+        fillcolor="white",
+    )
+
+
+def _whiten_scan_background(image: Image.Image) -> Image.Image:
+    """Fade light paper colors to white while retaining foreground content."""
+
+    rgb = image.convert("RGB")
+    whitening_mask = ImageOps.grayscale(rgb).point(
+        lambda luminance: round(max(0.0, min(1.0, (luminance - 150) / 80)) * 255)
+    )
+    return Image.composite(Image.new("RGB", rgb.size, "white"), rgb, whitening_mask)
+
+
+def _darken_scan_text(image: Image.Image) -> Image.Image:
+    rgb = image.convert("RGB")
+    text_mask = ImageOps.grayscale(rgb).point(
+        lambda luminance: 255 if luminance < 145 else 0
+    )
+    return Image.composite(Image.new("RGB", rgb.size, "black"), rgb, text_mask)
+
+
+def _enhance_scan_font_weight(image: Image.Image) -> Image.Image:
+    """Expand dark strokes by one pixel without turning the page monochrome."""
+
+    rgb = image.convert("RGB")
+    ink = ImageOps.invert(ImageOps.grayscale(rgb)).point(
+        lambda value: 255 if value > 80 else 0
+    )
+    expanded_ink = ink.filter(ImageFilter.MaxFilter(3))
+    new_ink = ImageChops.subtract(expanded_ink, ink)
+    return Image.composite(Image.new("RGB", rgb.size, "black"), rgb, new_ink)
+
+
+def _insert_searchable_text(page: fitz.Page, image: Image.Image) -> None:
+    """Add invisible OCR glyphs so optimized scans remain searchable/selectable."""
+
+    data = pytesseract.image_to_data(
+        image,
+        lang="eng",
+        config="--psm 3",
+        output_type=Output.DICT,
+    )
+    scale_x = page.rect.width / image.width
+    scale_y = page.rect.height / image.height
+
+    for index, raw_text in enumerate(data.get("text", [])):
+        text = "".join(character for character in raw_text.strip() if ord(character) < 256)
+        if not text:
+            continue
+
+        confidence = float(data["conf"][index])
+        if confidence < 20:
+            continue
+
+        left = data["left"][index]
+        top = data["top"][index]
+        height = data["height"][index]
+        page.insert_text(
+            (left * scale_x, (top + height) * scale_y),
+            text,
+            fontsize=max(4, height * scale_y * 0.8),
+            fontname="helv",
+            render_mode=3,
+            overlay=True,
+        )
+
+
+def optimize_pdf(
+    input_path: Path,
+    output_path: Path,
+    options: Set[str],
+    *,
+    dpi: int = 200,
+) -> Path:
+    """Apply combinable scan-cleanup operations and create a new PDF."""
+
+    _validate_pdf_path(input_path)
+    invalid_options = options - OPTIMIZATION_OPTION_NAMES
+    if invalid_options:
+        raise ValueError(f"Unsupported optimization option: {sorted(invalid_options)[0]}.")
+    if not options:
+        raise ValueError("Select at least one optimization option.")
+    if dpi < 150 or dpi > 300:
+        raise ValueError("Optimization DPI must be between 150 and 300.")
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    result = fitz.open()
+
+    try:
+        with fitz.open(input_path) as source:
+            if source.needs_pass:
+                raise ValueError("Password-protected PDFs are not supported for optimization.")
+            if source.page_count < 1:
+                raise ValueError("The PDF does not contain any pages.")
+
+            zoom = dpi / 72
+            for source_page in source:
+                pixmap = source_page.get_pixmap(matrix=fitz.Matrix(zoom, zoom), alpha=False)
+                image = Image.frombytes("RGB", (pixmap.width, pixmap.height), pixmap.samples)
+
+                if "deskew" in options:
+                    image = _deskew_scan(image)
+                if "whiten_background" in options:
+                    image = _whiten_scan_background(image)
+                if "darken_text" in options:
+                    image = _darken_scan_text(image)
+                if "enhance_font_weight" in options:
+                    image = _enhance_scan_font_weight(image)
+                if "invert_colors" in options:
+                    image = ImageOps.invert(image.convert("RGB"))
+
+                stream = io.BytesIO()
+                image.save(stream, format="JPEG", quality=88, optimize=True, progressive=True)
+
+                page = result.new_page(
+                    width=source_page.rect.width,
+                    height=source_page.rect.height,
+                )
+                page.insert_image(page.rect, stream=stream.getvalue())
+
+                if "vectorize_text" in options:
+                    _insert_searchable_text(page, image)
+
+        result.save(output_path, garbage=4, deflate=True, use_objstms=1)
+    finally:
+        result.close()
+
+    with fitz.open(output_path) as optimized:
+        if optimized.page_count < 1:
+            raise ValueError("Optimization produced an invalid PDF.")
+
+    return output_path
 
 
 def _parse_pages(pages: str, total_pages: int) -> List[int]:

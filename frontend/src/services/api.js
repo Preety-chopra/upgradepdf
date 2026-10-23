@@ -58,6 +58,22 @@ export async function submitCompress(file, quality, onUploadProgress) {
   return response.data;
 }
 
+export async function submitOptimize(file, options, onUploadProgress) {
+  const formData = new FormData();
+
+  formData.append("file", file);
+  options.forEach((option) => formData.append("options", option));
+
+  const response = await apiClient.post("/api/pdf/optimize", formData, {
+    headers: {
+      "Content-Type": "multipart/form-data"
+    },
+    onUploadProgress
+  });
+
+  return response.data;
+}
+
 export async function submitSplit(file, pages, onUploadProgress) {
   const formData = new FormData();
 

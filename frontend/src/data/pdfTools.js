@@ -13,6 +13,7 @@ export const pdfToolGroups = [
     title: "OPTIMIZE PDF",
     tools: [
       { name: "Compress PDF", slug: "compress", icon: "🗜️" },
+      { name: "Optimize PDF", slug: "optimize", icon: "✨" },
       { name: "OCR PDF", slug: "ocr-pdf", icon: "🔍" }
     ]
   },

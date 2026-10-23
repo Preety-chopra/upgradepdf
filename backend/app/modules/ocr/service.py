@@ -274,7 +274,12 @@ def process_ocr_file(
     if not output_pdf.exists() or output_pdf.stat().st_size == 0:
         raise OcrProcessingError("OCR completed but searchable PDF was not created.")
 
-    if export_text and (not output_text.exists() or output_text.stat().st_size == 0):
+    # OCRmyPDF's sidecar contains only newly recognized text. With --skip-text,
+    # pages that already have a text layer are represented by a message such as
+    # "[OCR skipped on page(s) 1-6]" instead of their actual content. Extract
+    # from the completed searchable PDF so the download contains text from both
+    # preserved and OCR-processed pages.
+    if export_text:
         extract_text_from_searchable_pdf(output_pdf, output_text)
 
     update_status(

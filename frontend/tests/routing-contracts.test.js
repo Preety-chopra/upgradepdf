@@ -120,6 +120,26 @@ test('multi-file tools can append more PDFs to the selected list', async () => {
   assert.match(dropzone, /fileInput\.value\.value = ""/);
 });
 
+test('every uploaded file has an accessible red cross removal control', async () => {
+  const [dropzone, conversionPage, styles] = await Promise.all([
+    readSource('src/components/FileDropzone.vue'),
+    readSource('src/pages/ConversionTools.vue'),
+    readSource('src/assets/main.css')
+  ]);
+
+  assert.match(dropzone, /class="file-remove-btn"/);
+  assert.match(dropzone, /:aria-label="`Remove \$\{file\.name\}`"/);
+  assert.match(dropzone, /@click="removeFile\(index\)"/);
+  assert.match(dropzone, /files\.value = files\.value\.filter\(\(_, fileIndex\) => fileIndex !== index\)/);
+  assert.match(dropzone, /emit\("files-selected", files\.value\)/);
+
+  assert.match(conversionPage, /class="file-remove-btn"/);
+  assert.match(conversionPage, /@click="removeFile\(index\)"/);
+  assert.match(conversionPage, /files\.value = files\.value\.filter\(\(_, fileIndex\) => fileIndex !== index\)/);
+
+  assert.match(styles, /\.file-remove-btn\s*\{[\s\S]*?color:\s*#dc2626/);
+});
+
 test('reorder pages has a complete UI and API flow', async () => {
   const [toolView, organizer, api] = await Promise.all([
     readSource('src/views/PdfToolView.vue'),
@@ -136,6 +156,24 @@ test('reorder pages has a complete UI and API flow', async () => {
   assert.match(organizer, /Move page \$\{pageNumber\} later/);
   assert.match(api, /\/api\/pdf\/reorder-pages/);
   assert.match(api, /page_order/);
+});
+
+test('PDF optimization exposes combinable scan cleanup options', async () => {
+  const [toolView, api, tools] = await Promise.all([
+    readSource('src/views/PdfToolView.vue'),
+    readSource('src/services/api.js'),
+    readSource('src/data/pdfTools.js')
+  ]);
+
+  assert.match(toolView, /optimize:\s*\{/);
+  assert.match(toolView, /value: "vectorize_text"/);
+  assert.match(toolView, /value: "invert_colors"/);
+  assert.match(toolView, /value: "deskew"/);
+  assert.match(toolView, /value: "whiten_background"/);
+  assert.match(toolView, /value: "darken_text"/);
+  assert.match(toolView, /value: "enhance_font_weight"/);
+  assert.match(api, /\/api\/pdf\/optimize/);
+  assert.match(tools, /slug: "optimize"/);
 });
 
 test('PDF tools use a centered workspace and a completion download modal', async () => {
@@ -288,6 +326,7 @@ test('robots and sitemap expose every indexable public route', async () => {
     '/convert',
     '/tools/merge',
     '/tools/compress',
+    '/tools/optimize',
     '/tools/reorder-pages',
     '/tools/ocr-pdf',
     '/tools/pdf-to-jpg',
@@ -314,7 +353,7 @@ test('every public page has reusable, prerendered SEO content in the target word
   assert.match(generator, /data-prerendered-page/);
 
   const expectedKeys = [
-    'home', 'convert', 'merge', 'split', 'compress', 'rotate', 'delete-pages',
+    'home', 'convert', 'merge', 'split', 'compress', 'optimize', 'rotate', 'delete-pages',
     'reorder-pages', 'ocr-pdf', 'pdf-to-jpg', 'images-to-pdf', 'jpg-to-pdf',
     'png-to-pdf', 'word-to-pdf', 'excel-to-pdf', 'pdf-to-word',
     'pdf-to-excel', 'pdf-to-csv'

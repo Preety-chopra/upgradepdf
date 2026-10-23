@@ -738,6 +738,34 @@ h3 {
   cursor: not-allowed;
 }
 
+.file-remove-btn {
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
+  display: grid;
+  place-items: center;
+  border: 1px solid #fecaca;
+  border-radius: 50%;
+  background: #fef2f2;
+  color: #dc2626;
+  cursor: pointer;
+  font-size: 23px;
+  font-weight: 800;
+  line-height: 1;
+  transition: 0.2s ease;
+}
+
+.file-remove-btn:hover {
+  border-color: #dc2626;
+  background: #dc2626;
+  color: #fff;
+}
+
+.file-remove-btn:focus-visible {
+  outline: 3px solid rgba(220, 38, 38, 0.25);
+  outline-offset: 2px;
+}
+
 .form-group {
   margin-bottom: 18px;
 }
@@ -802,6 +830,63 @@ h3 {
 .compression-option strong,
 .compression-option small {
   display: block;
+}
+
+.optimization-options {
+  display: grid;
+  gap: 10px;
+  margin: 0 0 20px;
+  padding: 0;
+  border: 0;
+}
+
+.optimization-options legend {
+  font-weight: 800;
+}
+
+.field-help {
+  margin: -2px 0 4px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.optimization-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: white;
+  cursor: pointer;
+}
+
+.optimization-option.selected {
+  border-color: var(--primary);
+  background: #fff5f5;
+  box-shadow: 0 0 0 3px rgba(229, 50, 45, 0.1);
+}
+
+.optimization-option input {
+  margin-top: 4px;
+  accent-color: var(--primary);
+}
+
+.optimization-option strong,
+.optimization-option small {
+  display: block;
+}
+
+.optimization-option small {
+  margin-top: 4px;
+  color: var(--muted);
+  line-height: 1.4;
+}
+
+.option-warning {
+  margin: 0;
+  color: #b42318;
+  font-weight: 700;
 }
 
 .compression-option small {

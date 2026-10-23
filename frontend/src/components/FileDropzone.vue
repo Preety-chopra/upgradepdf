@@ -72,6 +72,15 @@
             @click="moveFile(index, index + 1)"
           >↓</button>
         </span>
+        <button
+          type="button"
+          class="file-remove-btn"
+          :aria-label="`Remove ${file.name}`"
+          :title="`Remove ${file.name}`"
+          @click="removeFile(index)"
+        >
+          <span aria-hidden="true">×</span>
+        </button>
       </li>
     </ul>
 
@@ -155,6 +164,16 @@ function clearFiles() {
 }
 
 defineExpose({ clearFiles });
+
+function removeFile(index) {
+  if (index < 0 || index >= files.value.length) {
+    return;
+  }
+
+  files.value = files.value.filter((_, fileIndex) => fileIndex !== index);
+  resetReorderDrag();
+  emit("files-selected", files.value);
+}
 
 function moveFile(fromIndex, toIndex) {
   const reorderedFiles = moveItem(files.value, fromIndex, toIndex);

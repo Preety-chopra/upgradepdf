@@ -12,6 +12,7 @@ from app.services.pdf_service import (
     delete_pages,
     extract_pages,
     merge_pdfs,
+    optimize_pdf,
     reorder_pdf,
     rotate_pdf,
 )
@@ -51,6 +52,33 @@ def compress_pdf_task(job_id: str, quality: str):
             "download_url": f"/api/files/download/{job_id}/{result_path.name}",
         }
 
+    except Exception as exc:
+        mark_job_failed(job_id=job_id, error_message=str(exc))
+        raise
+
+
+@celery_app.task(name="optimize_pdf_task")
+def optimize_pdf_task(job_id: str, options: list[str]):
+    try:
+        mark_job_processing(job_id)
+
+        input_path = Path(settings.UPLOAD_DIR) / job_id / "input.pdf"
+        output_path = Path(settings.OUTPUT_DIR) / job_id / "optimized.pdf"
+        result_path = optimize_pdf(
+            input_path=input_path,
+            output_path=output_path,
+            options=set(options),
+        )
+
+        mark_job_completed(job_id=job_id, output_filename=result_path.name)
+        return {
+            "job_id": job_id,
+            "status": "completed",
+            "operation": "optimize",
+            "options": options,
+            "filename": result_path.name,
+            "download_url": f"/api/files/download/{job_id}/{result_path.name}",
+        }
     except Exception as exc:
         mark_job_failed(job_id=job_id, error_message=str(exc))
         raise

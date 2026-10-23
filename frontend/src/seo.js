@@ -37,6 +37,11 @@ const TOOL_METADATA = {
     description:
       "Reduce PDF file size online while preserving readable text, links, forms, and page layout. Choose the compression level that fits your needs."
   },
+  optimize: {
+    title: "Optimize PDF Online – Clean and Straighten Scans",
+    description:
+      "Optimize scanned PDFs online. Deskew pages, whiten backgrounds, invert colors, darken or thicken text, and add a searchable OCR text layer."
+  },
   rotate: {
     title: "Rotate PDF Pages Online",
     description:
@@ -111,6 +116,14 @@ const TOOL_SCHEMA = {
   compress: {
     name: "Compress PDF",
     features: ["Reduce PDF file size", "Choose from multiple compression levels"]
+  },
+  optimize: {
+    name: "Optimize PDF",
+    features: [
+      "Automatically align skewed scanned pages",
+      "Whiten backgrounds and improve text contrast",
+      "Add searchable OCR text to scans"
+    ]
   },
   rotate: {
     name: "Rotate PDF",

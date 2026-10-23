@@ -138,6 +138,20 @@ export const SEO_CONTENT = {
     related: [toolLink("merge", "Merge PDF"), toolLink("split", "Split PDF"), toolLink("ocr-pdf", "OCR PDF")]
   }),
 
+  optimize: defineTool({
+    heading: "Optimize Scanned PDF Pages Online",
+    name: "Optimize PDF",
+    input: "one PDF containing scanned or photographed pages",
+    output: "a cleaned PDF with the selected image and text improvements",
+    about: "Optimize PDF improves scans that are difficult to read because the page is tilted, the paper has a gray or yellow cast, or the text is faint. You can combine automatic alignment, background whitening, text darkening, font-weight enhancement, color inversion, and OCR text recognition in one processing job.",
+    steps: ["Upload the scanned PDF you want to improve.", "Select one or more optimization tasks based on the visible problems in the document.", "Choose Optimize PDF, wait for every page to be processed, and inspect the downloaded result."],
+    benefits: ["Combine several scan-cleanup operations in one workflow.", "Straighten slightly skewed text without rotating pages manually.", "Add a searchable and selectable OCR layer when text recognition is enabled."],
+    useCases: ["Clean yellowed archive pages before sharing them.", "Improve faint photocopies and receipts for easier reading.", "Make photographed or scanned documents searchable after visual cleanup."],
+    bestResult: "Start with deskew, background optimization, and text darkening for typical paper scans. Add font-weight enhancement only when strokes are genuinely thin, and review OCR text because recognition accuracy depends on scan quality.",
+    extraFaq: { question: "Can I combine all optimization options?", answer: "Yes, but more processing is not always better. Color inversion changes the whole page, and font-weight enhancement can make already bold text look heavy, so select only the improvements the scan needs." },
+    related: [toolLink("compress", "Compress PDF"), toolLink("ocr-pdf", "OCR PDF"), toolLink("rotate", "Rotate PDF")]
+  }),
+
   rotate: defineTool({
     heading: "Rotate PDF Pages Online",
     name: "Rotate PDF",

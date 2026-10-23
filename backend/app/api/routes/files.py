@@ -15,7 +15,7 @@ router = APIRouter()
 
 
 def _download_filename(job: Job, stored_filename: str) -> str:
-    if job.operation == JobOperation.COMPRESS and job.input_filename:
+    if job.operation in {JobOperation.COMPRESS, JobOperation.OPTIMIZE} and job.input_filename:
         return job.input_filename
 
     return stored_filename

@@ -69,12 +69,24 @@
         </div>
 
         <div v-if="files.length" class="file-list">
-          <div v-for="file in files" :key="`${file.name}-${file.size}`" class="file-row">
+          <div
+            v-for="(file, index) in files"
+            :key="`${file.name}-${file.size}-${file.lastModified}-${index}`"
+            class="file-row"
+          >
             <div>
               <strong>{{ file.name }}</strong>
               <small>{{ formatBytes(file.size) }}</small>
             </div>
-            <button type="button" class="text-btn" @click="removeFile(file)">Remove</button>
+            <button
+              type="button"
+              class="file-remove-btn"
+              :aria-label="`Remove ${file.name}`"
+              :title="`Remove ${file.name}`"
+              @click="removeFile(index)"
+            >
+              <span aria-hidden="true">×</span>
+            </button>
           </div>
         </div>
 
@@ -293,8 +305,8 @@ function setFiles(incomingFiles) {
   files.value = selectedTool.value.multiple ? incomingFiles : [incomingFiles[0]];
 }
 
-function removeFile(targetFile) {
-  files.value = files.value.filter((file) => file !== targetFile);
+function removeFile(index) {
+  files.value = files.value.filter((_, fileIndex) => fileIndex !== index);
 }
 
 function resetForm() {
@@ -609,6 +621,34 @@ function formatBytes(bytes) {
   justify-content: space-between;
   gap: 16px;
   background: #ffffff;
+}
+
+.file-remove-btn {
+  width: 36px;
+  height: 36px;
+  flex: 0 0 36px;
+  display: grid;
+  place-items: center;
+  border: 1px solid #fecaca;
+  border-radius: 50%;
+  background: #fef2f2;
+  color: #dc2626;
+  cursor: pointer;
+  font-size: 24px;
+  font-weight: 800;
+  line-height: 1;
+  transition: 0.2s ease;
+}
+
+.file-remove-btn:hover {
+  border-color: #dc2626;
+  background: #dc2626;
+  color: #ffffff;
+}
+
+.file-remove-btn:focus-visible {
+  outline: 3px solid rgba(220, 38, 38, 0.25);
+  outline-offset: 2px;
 }
 
 .settings-panel {

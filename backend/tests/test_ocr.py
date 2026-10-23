@@ -1,6 +1,7 @@
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 import fitz
 from fastapi import HTTPException
@@ -12,6 +13,7 @@ from app.modules.ocr.service import (
     ensure_pdf_input,
     extract_text_from_searchable_pdf,
     parse_language_codes,
+    process_ocr_file,
 )
 from app.modules.ocr.storage import get_job_dir, public_status_payload, safe_filename
 from app.modules.ocr.tasks import process_ocr_job
@@ -55,6 +57,70 @@ class OcrServiceTests(unittest.TestCase):
             exported = text_path.read_text(encoding="utf-8")
             self.assertIn("Page 1", exported)
             self.assertIn("Searchable text", exported)
+
+    def test_searchable_pdf_text_export_replaces_ocrmypdf_skip_placeholder(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            pdf_path = root / "searchable.pdf"
+            text_path = root / "output" / "ocr.txt"
+            text_path.parent.mkdir(parents=True)
+            text_path.write_text("[OCR skipped on page(s) 1-6]\n", encoding="utf-8")
+
+            with fitz.open() as document:
+                for page_number in range(1, 7):
+                    page = document.new_page()
+                    page.insert_text((72, 72), f"Existing text on page {page_number}")
+                document.save(pdf_path)
+
+            extract_text_from_searchable_pdf(pdf_path, text_path)
+
+            exported = text_path.read_text(encoding="utf-8")
+            self.assertNotIn("OCR skipped", exported)
+            self.assertIn("Existing text on page 1", exported)
+            self.assertIn("Existing text on page 6", exported)
+
+    def test_ocr_job_rebuilds_nonempty_sidecar_from_completed_pdf(self):
+        with tempfile.TemporaryDirectory() as directory:
+            job_dir = Path(directory)
+            input_dir = job_dir / "input"
+            input_dir.mkdir()
+            source_path = input_dir / "source.pdf"
+
+            with fitz.open() as document:
+                page = document.new_page()
+                page.insert_text((72, 72), "Text preserved by skip-text")
+                document.save(source_path)
+
+            def fake_ocr_command(**kwargs):
+                command = kwargs["command"]
+                output_pdf = Path(command[-1])
+                with fitz.open(command[-2]) as source:
+                    source.save(output_pdf)
+
+                sidecar = Path(command[command.index("--sidecar") + 1])
+                sidecar.write_text("[OCR skipped on page(s) 1]\n", encoding="utf-8")
+                return ""
+
+            with (
+                patch("app.modules.ocr.service.get_job_dir", return_value=job_dir),
+                patch("app.modules.ocr.service.require_ocr_tools"),
+                patch("app.modules.ocr.service.run_ocr_command", side_effect=fake_ocr_command),
+                patch("app.modules.ocr.service.update_status"),
+            ):
+                process_ocr_file(
+                    job_id="a" * 32,
+                    input_filename="source.pdf",
+                    language_codes=["eng"],
+                    export_text=True,
+                    deskew=False,
+                    rotate_pages=False,
+                    force_ocr=False,
+                    timeout_seconds=120,
+                )
+
+            exported = (job_dir / "output" / "source_ocr.txt").read_text(encoding="utf-8")
+            self.assertNotIn("OCR skipped", exported)
+            self.assertIn("Text preserved by skip-text", exported)
 
 
 class OcrContractTests(unittest.TestCase):

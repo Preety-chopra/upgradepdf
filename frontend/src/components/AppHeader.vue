@@ -31,6 +31,14 @@
         COMPRESS PDF
       </RouterLink>
 
+      <RouterLink
+        to="/tools/optimize"
+        class="nav-link"
+        :class="{ active: currentTool === 'optimize' }"
+      >
+        OPTIMIZE PDF
+      </RouterLink>
+
       <div class="nav-dropdown">
         <button
           class="nav-link dropdown-button"

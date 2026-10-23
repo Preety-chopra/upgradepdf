@@ -1,6 +1,6 @@
 from typing import List, Literal
 
-from fastapi import APIRouter, Depends, File, Form, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -15,12 +15,22 @@ from app.workers.tasks import (
     compress_pdf_task,
     delete_pages_pdf_task,
     merge_pdf_task,
+    optimize_pdf_task,
     reorder_pdf_task,
     rotate_pdf_task,
     split_pdf_task,
 )
 
 router = APIRouter()
+
+OPTIMIZATION_OPTIONS = {
+    "vectorize_text",
+    "invert_colors",
+    "deskew",
+    "whiten_background",
+    "darken_text",
+    "enhance_font_weight",
+}
 
 
 @router.post("/compress")
@@ -48,6 +58,43 @@ async def compress_pdf_api(
         "job_id": job_id,
         "task_id": task.id,
         "quality": quality,
+        "job_status_url": f"/api/jobs/{job_id}",
+        "task_status_url": f"/api/files/status/{task.id}",
+    }
+
+
+@router.post("/optimize")
+async def optimize_pdf_api(
+    file: UploadFile = File(...),
+    options: List[str] = Form(...),
+    db: Session = Depends(get_db),
+):
+    selected_options = list(dict.fromkeys(options))
+    invalid_options = set(selected_options) - OPTIMIZATION_OPTIONS
+    if invalid_options:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Unsupported optimization option: {sorted(invalid_options)[0]}.",
+        )
+    if not selected_options:
+        raise HTTPException(status_code=422, detail="Select at least one optimization option.")
+
+    job_id = create_job_id()
+    await save_uploaded_pdf(file=file, job_id=job_id)
+    create_job(
+        db=db,
+        job_id=job_id,
+        operation=JobOperation.OPTIMIZE,
+        input_filename=file.filename,
+    )
+    task = optimize_pdf_task.delay(job_id, selected_options)
+    set_task_id(db=db, job_id=job_id, task_id=task.id)
+
+    return {
+        "message": "Optimization job started.",
+        "job_id": job_id,
+        "task_id": task.id,
+        "options": selected_options,
         "job_status_url": f"/api/jobs/{job_id}",
         "task_status_url": f"/api/files/status/{task.id}",
     }
