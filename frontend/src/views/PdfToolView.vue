@@ -145,11 +145,11 @@
 
         <div v-if="job?.status === 'completed'" class="completed-download-bar" role="status">
           <div>
-            <strong>Your PDF is ready</strong>
+            <strong>{{ compressionResult?.title || "Your PDF is ready" }}</strong>
             <small>{{ job.output_filename }}</small>
           </div>
           <button type="button" class="primary-btn" @click="isResultModalOpen = true">
-            Download PDF
+            {{ compressionResult?.reduced === false ? "View result" : "Download PDF" }}
           </button>
         </div>
 
@@ -254,10 +254,14 @@
           &times;
         </button>
 
-        <div class="download-modal-icon" aria-hidden="true">&#10003;</div>
+        <div
+          class="download-modal-icon"
+          :class="{ 'no-reduction': compressionResult?.reduced === false }"
+          aria-hidden="true"
+        >{{ compressionResult?.reduced === false ? "!" : "\u2713" }}</div>
         <p class="eyebrow">Processing complete</p>
-        <h2 id="download-modal-title">Your PDF is ready</h2>
-        <p>Your processed file has been created successfully.</p>
+        <h2 id="download-modal-title">{{ compressionResult?.title || "Your PDF is ready" }}</h2>
+        <p>{{ compressionResult?.message || "Your processed file has been created successfully." }}</p>
 
         <div
           v-if="job?.operation === 'compress'"
@@ -273,12 +277,17 @@
               <dd>{{ formatSize(job.output_size_bytes) }}</dd>
             </div>
           </dl>
-          <span v-if="job.savings_percent != null" class="compression-savings">
-            {{ job.savings_percent }}% space saved
+          <span
+            v-if="compressionResult"
+            class="compression-savings"
+            :class="{ 'no-reduction': !compressionResult.reduced }"
+          >
+            {{ compressionResult.savings }}
           </span>
         </div>
 
         <a
+          v-if="compressionResult?.reduced !== false"
           class="primary-btn full-width"
           :href="downloadUrl"
           download
@@ -299,6 +308,7 @@ import FileDropzone from "../components/FileDropzone.vue";
 import PdfPageOrganizer from "../components/PdfPageOrganizer.vue";
 import PdfPreview from "../components/PdfPreview.vue";
 import SeoContentSection from "../components/SeoContentSection.vue";
+import { getCompressionResult } from "../utils/compression";
 import {
   buildAbsoluteUrl,
   getJob,
@@ -450,6 +460,7 @@ const showPreview = computed(() => {
 });
 
 const downloadUrl = computed(() => buildAbsoluteUrl(job.value?.download_url));
+const compressionResult = computed(() => getCompressionResult(job.value));
 
 const isPageSelectionTool = computed(() => {
   return ["split", "rotate", "delete-pages"].includes(tool.value);

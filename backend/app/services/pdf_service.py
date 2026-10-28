@@ -1,7 +1,6 @@
 import io
 import json
 import math
-import shutil
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, List, Set
@@ -13,9 +12,9 @@ from pytesseract import Output
 
 
 COMPRESSION_PROFILES: Dict[str, dict] = {
-    "light": {"max_dimension": 2400, "jpeg_quality": 84},
-    "balanced": {"max_dimension": 1800, "jpeg_quality": 72},
-    "strong": {"max_dimension": 1200, "jpeg_quality": 55},
+    "light": {"max_dimension": 2400, "jpeg_quality": 84, "image_scale": 0.95},
+    "balanced": {"max_dimension": 1800, "jpeg_quality": 72, "image_scale": 0.85},
+    "strong": {"max_dimension": 1200, "jpeg_quality": 55, "image_scale": 0.70},
 }
 
 OPTIMIZATION_OPTION_NAMES = {
@@ -47,6 +46,8 @@ def _encode_compressed_image(
     max_dimension: int,
     jpeg_quality: int,
     source_filter: str = "",
+    image_scale: float = 1.0,
+    original_size: int | None = None,
 ) -> bytes | None:
     """Downsample and encode an embedded image without changing page content."""
 
@@ -55,8 +56,13 @@ def _encode_compressed_image(
             image.load()
 
             largest_dimension = max(image.size)
-            if largest_dimension > max_dimension:
-                scale = max_dimension / largest_dimension
+            # Absolute limits alone leave ordinary screen-sized scans unchanged.
+            # Apply a graduated reduction too, without shrinking small logos.
+            target_dimension = min(
+                max_dimension, max(256, round(largest_dimension * image_scale))
+            )
+            if largest_dimension > target_dimension:
+                scale = target_dimension / largest_dimension
                 image = image.resize(
                     (
                         max(1, round(image.width * scale)),
@@ -68,9 +74,10 @@ def _encode_compressed_image(
             has_alpha = image.mode in {"RGBA", "LA"} or (
                 image.mode == "P" and "transparency" in image.info
             )
+            candidates = []
             output = io.BytesIO()
 
-            if source_filter == "CCITTFaxDecode":
+            if source_filter == "CCITTFaxDecode" or image.mode == "1":
                 # CCITT images are monochrome document scans. JPEG is both slow
                 # and usually larger for this content, while Group 4 retains the
                 # crisp bilevel representation after downsampling.
@@ -79,9 +86,18 @@ def _encode_compressed_image(
                     dither=Image.Dither.NONE,
                 )
                 image.save(output, format="TIFF", compression="group4")
+                candidates.append(output.getvalue())
             elif has_alpha:
                 image.save(output, format="PNG", optimize=True)
+                candidates.append(output.getvalue())
             else:
+                # PNG often beats JPEG for diagrams and document scans. Keep
+                # whichever encoding actually reduces the embedded stream.
+                if image.mode not in {"RGB", "L", "P"}:
+                    image = image.convert("RGB")
+                image.save(output, format="PNG", optimize=True)
+                candidates.append(output.getvalue())
+                output = io.BytesIO()
                 if image.mode not in {"RGB", "L"}:
                     image = image.convert("RGB")
                 image.save(
@@ -91,9 +107,11 @@ def _encode_compressed_image(
                     optimize=True,
                     progressive=True,
                 )
+                candidates.append(output.getvalue())
 
-            candidate = output.getvalue()
-            if len(candidate) >= len(image_bytes) * 0.95:
+            candidate = min(candidates, key=len)
+            source_size = original_size if original_size is not None else len(image_bytes)
+            if len(candidate) >= source_size:
                 return None
 
             return candidate
@@ -114,6 +132,14 @@ def compress_pdf(input_path: Path, output_path: Path, quality: str) -> Path:
     profile = COMPRESSION_PROFILES[quality]
     output_path.parent.mkdir(parents=True, exist_ok=True)
     working_path = output_path.with_suffix(".working.pdf")
+    candidate_path = output_path.with_suffix(".candidate.pdf")
+    save_options = dict(
+        garbage=4,
+        deflate=True,
+        deflate_images=True,
+        deflate_fonts=True,
+        use_objstms=1,
+    )
 
     try:
         with fitz.open(input_path) as doc:
@@ -125,6 +151,15 @@ def compress_pdf(input_path: Path, output_path: Path, quality: str) -> Path:
             if doc.page_count < 1:
                 raise ValueError("The PDF does not contain any pages.")
 
+            page_count = doc.page_count
+            # Editable forms may need characters that have not been entered yet.
+            if not doc.is_form_pdf:
+                doc.subset_fonts()
+            doc.save(working_path, **save_options)
+
+        # Keep the lossless result as a candidate: image replacement or content
+        # stream cleanup can make some PDFs larger rather than smaller.
+        with fitz.open(working_path) as doc:
             image_pages: Dict[int, tuple[int, str]] = {}
             for page_number in range(doc.page_count):
                 for image in doc.get_page_images(page_number, full=True):
@@ -142,38 +177,41 @@ def compress_pdf(input_path: Path, output_path: Path, quality: str) -> Path:
 
                 replacement = _encode_compressed_image(
                     original,
-                    max_dimension=profile["max_dimension"],
-                    jpeg_quality=profile["jpeg_quality"],
+                    **profile,
                     source_filter=source_filter,
+                    original_size=len(doc.xref_stream_raw(xref)),
                 )
                 if replacement:
                     page = doc.load_page(page_number)
                     page.replace_image(xref, stream=replacement)
 
-            doc.save(
-                working_path,
-                garbage=4,
-                clean=True,
-                deflate=True,
-                deflate_images=True,
-                deflate_fonts=True,
-                use_objstms=1,
+            doc.save(candidate_path, clean=True, **save_options)
+
+        best_path = min(
+            (path for path in (working_path, candidate_path) if path.exists()),
+            key=lambda path: path.stat().st_size,
+        )
+        if best_path.stat().st_size >= input_path.stat().st_size:
+            suggestion = (
+                "Try a stronger compression level."
+                if quality != "strong"
+                else "The file is already optimized for these settings."
+            )
+            raise ValueError(
+                f"This PDF could not be made smaller with {quality} compression "
+                f"while preserving its content. {suggestion} Your original file is unchanged."
             )
 
-        if working_path.stat().st_size < input_path.stat().st_size:
-            working_path.replace(output_path)
-        else:
-            shutil.copy2(input_path, output_path)
-            working_path.unlink(missing_ok=True)
-
         # Reopen the artifact so corrupt output is never marked successful.
-        with fitz.open(output_path) as result:
-            if result.page_count < 1:
+        with fitz.open(best_path) as result:
+            if result.page_count != page_count:
                 raise ValueError("Compression produced an invalid PDF.")
 
+        best_path.replace(output_path)
         return output_path
     finally:
         working_path.unlink(missing_ok=True)
+        candidate_path.unlink(missing_ok=True)
 
 
 def _deskew_scan(image: Image.Image, max_angle: float = 5.0) -> Image.Image:

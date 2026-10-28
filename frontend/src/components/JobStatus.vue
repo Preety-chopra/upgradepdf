@@ -50,7 +50,7 @@
         "
       >
         <small>Space saved</small>
-        <p>{{ job.savings_percent }}%</p>
+        <p>{{ compressionResult?.savings || `${job.savings_percent}%` }}</p>
       </div>
     </div>
 
@@ -59,7 +59,7 @@
     </p>
 
     <a
-      v-if="downloadUrl"
+      v-if="downloadUrl && compressionResult?.reduced !== false"
       class="primary-btn full-width"
       :href="downloadUrl"
       target="_blank"
@@ -77,6 +77,7 @@
 <script setup>
 import { computed } from "vue";
 import { buildAbsoluteUrl } from "../services/api";
+import { getCompressionResult } from "../utils/compression";
 
 const props = defineProps({
   job: {
@@ -90,6 +91,10 @@ const readableStatus = computed(() => {
     return "";
   }
 
+  if (compressionResult.value) {
+    return compressionResult.value.title;
+  }
+
   const map = {
     pending: "Waiting to start",
     processing: "Processing your PDF",
@@ -100,6 +105,8 @@ const readableStatus = computed(() => {
 
   return map[props.job.status] || props.job.status;
 });
+
+const compressionResult = computed(() => getCompressionResult(props.job));
 
 const downloadUrl = computed(() => {
   if (!props.job?.download_url) {

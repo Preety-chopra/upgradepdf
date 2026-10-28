@@ -1127,6 +1127,15 @@ h3 {
   font-weight: 900;
 }
 
+.compression-savings.no-reduction {
+  color: var(--warning);
+}
+
+.download-modal-icon.no-reduction {
+  background: #fff7ed;
+  color: var(--warning);
+}
+
 .download-modal-close {
   position: absolute;
   top: 14px;
