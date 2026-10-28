@@ -7,6 +7,7 @@ import fitz
 from app.services.pdf_service import (
     _parse_page_order,
     _parse_pages,
+    compare_pdfs,
     delete_pages,
     extract_pages,
     merge_pdfs,
@@ -44,6 +45,33 @@ class PageSelectionTests(unittest.TestCase):
 
 
 class PdfToolTests(unittest.TestCase):
+    def test_compare_marks_changed_and_unchanged_pages(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            reference = create_pdf(root / "reference.pdf", ["Same", "Original text"])
+            revised = create_pdf(root / "revised.pdf", ["Same", "Revised text"])
+
+            result = compare_pdfs(reference, revised, root / "comparison.pdf", dpi=72)
+
+            self.assertTrue(result.output_path.exists())
+            self.assertEqual(result.summary["pages_compared"], 2)
+            self.assertEqual(result.summary["unchanged_pages"], 1)
+            self.assertEqual(result.summary["changed_pages"], 1)
+            with fitz.open(result.output_path) as report:
+                self.assertEqual(report.page_count, 2)
+
+    def test_compare_reports_added_pages(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            reference = create_pdf(root / "reference.pdf", ["First"])
+            revised = create_pdf(root / "revised.pdf", ["First", "Added"])
+
+            result = compare_pdfs(reference, revised, root / "comparison.pdf", dpi=72)
+
+            self.assertEqual(result.summary["added_pages"], 1)
+            self.assertEqual(result.summary["removed_pages"], 0)
+            self.assertEqual(result.summary["unchanged_pages"], 1)
+
     def test_reorder_saves_pages_in_the_requested_order(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

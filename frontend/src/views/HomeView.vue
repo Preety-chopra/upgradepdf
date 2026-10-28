@@ -49,6 +49,12 @@
         <p>Rearrange pages visually and export a new PDF.</p>
       </RouterLink>
 
+      <RouterLink class="tool-card" to="/tools/compare">
+        <span class="tool-icon">⇄</span>
+        <h3>Compare PDF</h3>
+        <p>Spot visual changes between an original PDF and a new version.</p>
+      </RouterLink>
+
       <RouterLink class="tool-card" to="/tools/pdf-to-jpg">
         <div class="tool-icon">🖼️</div>
         <h3>PDF to JPG</h3>

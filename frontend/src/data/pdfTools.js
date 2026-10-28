@@ -6,7 +6,8 @@ export const pdfToolGroups = [
     tools: [
       { name: "Merge PDF", slug: "merge", icon: "🔀" },
       { name: "Split PDF", slug: "split", icon: "✂️" },
-      { name: "Reorder PDF", slug: "reorder-pages", icon: "↕️" }
+      { name: "Reorder PDF", slug: "reorder-pages", icon: "↕️" },
+      { name: "Compare PDF", slug: "compare", icon: "⇄" }
     ]
   },
   {

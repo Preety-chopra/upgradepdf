@@ -17,14 +17,13 @@
 
     <div class="dropzone-content">
       <div class="upload-icon">↑</div>
-      <h3>{{ multiple ? "Upload PDF files" : "Upload PDF file" }}</h3>
+      <h3>{{ title || (multiple ? "Upload PDF files" : "Upload PDF file") }}</h3>
       <p>
-        Drag and drop PDF {{ multiple ? "files" : "file" }} here, or click to
-        browse.
+        {{ description || `Drag and drop PDF ${multiple ? "files" : "file"} here, or click to browse.` }}
       </p>
 
       <button type="button" class="secondary-btn" @click="openFilePicker">
-        Choose {{ multiple ? "files" : "file" }}
+        {{ buttonText || `Choose ${multiple ? "files" : "file"}` }}
       </button>
     </div>
   </div>
@@ -106,6 +105,18 @@ const props = defineProps({
   multiple: {
     type: Boolean,
     default: false
+  },
+  title: {
+    type: String,
+    default: ""
+  },
+  description: {
+    type: String,
+    default: ""
+  },
+  buttonText: {
+    type: String,
+    default: ""
   }
 });
 

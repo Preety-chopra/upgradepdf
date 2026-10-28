@@ -158,6 +158,26 @@ test('reorder pages has a complete UI and API flow', async () => {
   assert.match(api, /page_order/);
 });
 
+test('compare PDF has two ordered inputs and a downloadable result summary', async () => {
+  const [router, view, api, home] = await Promise.all([
+    readSource('src/router/index.js'),
+    readSource('src/views/ComparePdfView.vue'),
+    readSource('src/services/api.js'),
+    readSource('src/views/HomeView.vue')
+  ]);
+
+  assert.match(router, /path:\s*["']\/tools\/compare["']/);
+  assert.match(view, /Original PDF/);
+  assert.match(view, /New PDF/);
+  assert.match(view, /submitCompare/);
+  assert.match(view, /job\.comparison\.changed_pages/);
+  assert.match(view, /Download comparison report/);
+  assert.match(api, /\/api\/pdf\/compare/);
+  assert.match(api, /formData\.append\("files", referenceFile\)/);
+  assert.match(api, /formData\.append\("files", revisedFile\)/);
+  assert.match(home, /to="\/tools\/compare"/);
+});
+
 test('PDF optimization exposes combinable scan cleanup options', async () => {
   const [toolView, api, tools] = await Promise.all([
     readSource('src/views/PdfToolView.vue'),

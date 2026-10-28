@@ -12,6 +12,7 @@ from app.services.file_service import (
 )
 from app.services.job_service import create_job, set_task_id
 from app.workers.tasks import (
+    compare_pdf_task,
     compress_pdf_task,
     delete_pages_pdf_task,
     merge_pdf_task,
@@ -31,6 +32,38 @@ OPTIMIZATION_OPTIONS = {
     "darken_text",
     "enhance_font_weight",
 }
+
+
+@router.post("/compare")
+async def compare_pdf_api(
+    files: List[UploadFile] = File(...),
+    db: Session = Depends(get_db),
+):
+    if len(files) != 2:
+        raise HTTPException(
+            status_code=400,
+            detail="Exactly two PDF files are required for comparison.",
+        )
+
+    job_id = create_job_id()
+    await save_uploaded_pdfs(files=files, job_id=job_id)
+    create_job(
+        db=db,
+        job_id=job_id,
+        operation=JobOperation.COMPARE,
+        input_filename=f"{files[0].filename} vs {files[1].filename}",
+    )
+
+    task = compare_pdf_task.delay(job_id)
+    set_task_id(db=db, job_id=job_id, task_id=task.id)
+
+    return {
+        "message": "PDF comparison job started.",
+        "job_id": job_id,
+        "task_id": task.id,
+        "job_status_url": f"/api/jobs/{job_id}",
+        "task_status_url": f"/api/files/status/{task.id}",
+    }
 
 
 @router.post("/compress")

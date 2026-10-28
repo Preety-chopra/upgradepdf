@@ -22,6 +22,7 @@ class JobResponse(BaseModel):
     input_size_bytes: Optional[int] = None
     output_size_bytes: Optional[int] = None
     savings_percent: Optional[float] = None
+    comparison: Optional[dict] = None
 
     class Config:
         from_attributes = True

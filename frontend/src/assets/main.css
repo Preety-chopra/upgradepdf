@@ -1081,6 +1081,39 @@ h3 {
   line-height: 1.6;
 }
 
+.compression-summary {
+  margin-bottom: 24px;
+  padding: 18px 12px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+}
+
+.compression-size-comparison {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin: 0;
+}
+
+.compression-size-comparison dt {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.compression-size-comparison dd {
+  margin: 8px 0 0;
+  font-size: 20px;
+  font-weight: 800;
+  overflow-wrap: anywhere;
+}
+
+.compression-savings {
+  display: block;
+  margin-top: 14px;
+  color: var(--success);
+  font-weight: 700;
+}
+
 .download-modal-icon {
   width: 64px;
   height: 64px;

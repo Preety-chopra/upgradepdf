@@ -42,6 +42,21 @@ export async function submitMerge(files, onUploadProgress) {
   return response.data;
 }
 
+export async function submitCompare(referenceFile, revisedFile, onUploadProgress) {
+  const formData = new FormData();
+  formData.append("files", referenceFile);
+  formData.append("files", revisedFile);
+
+  const response = await apiClient.post("/api/pdf/compare", formData, {
+    headers: {
+      "Content-Type": "multipart/form-data"
+    },
+    onUploadProgress
+  });
+
+  return response.data;
+}
+
 export async function submitCompress(file, quality, onUploadProgress) {
   const formData = new FormData();
 

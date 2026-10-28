@@ -259,6 +259,25 @@
         <h2 id="download-modal-title">Your PDF is ready</h2>
         <p>Your processed file has been created successfully.</p>
 
+        <div
+          v-if="job?.operation === 'compress'"
+          class="compression-summary"
+        >
+          <dl class="compression-size-comparison">
+            <div>
+              <dt>Before compression</dt>
+              <dd>{{ formatSize(job.input_size_bytes) }}</dd>
+            </div>
+            <div>
+              <dt>After compression</dt>
+              <dd>{{ formatSize(job.output_size_bytes) }}</dd>
+            </div>
+          </dl>
+          <span v-if="job.savings_percent != null" class="compression-savings">
+            {{ job.savings_percent }}% space saved
+          </span>
+        </div>
+
         <a
           class="primary-btn full-width"
           :href="downloadUrl"
@@ -577,6 +596,22 @@ function handleUploadProgress(progressEvent) {
   uploadProgress.value = Math.round(
     (progressEvent.loaded * 100) / progressEvent.total
   );
+}
+
+function formatSize(bytes) {
+  if (bytes == null) {
+    return "Unavailable";
+  }
+
+  if (bytes < 1024) {
+    return `${bytes} B`;
+  }
+
+  if (bytes < 1024 * 1024) {
+    return `${(bytes / 1024).toFixed(1)} KB`;
+  }
+
+  return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
 }
 
 async function submitTool() {

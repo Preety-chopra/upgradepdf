@@ -57,6 +57,11 @@ const TOOL_METADATA = {
     description:
       "Rearrange PDF pages visually online. Drag page thumbnails into a new order and download the reorganized PDF document."
   },
+  compare: {
+    title: "Compare PDF Files Online – Highlight Differences",
+    description:
+      "Compare two PDF files online and download a side-by-side report with visual changes highlighted page by page."
+  },
   "pdf-to-jpg": {
     title: "PDF to JPG Converter Online",
     description:
@@ -136,6 +141,10 @@ const TOOL_SCHEMA = {
   "reorder-pages": {
     name: "Reorder PDF Pages",
     features: ["Rearrange pages with visual thumbnails", "Export pages in a custom order"]
+  },
+  compare: {
+    name: "Compare PDF",
+    features: ["Compare two PDF versions", "Highlight page-by-page visual changes"]
   },
   "ocr-pdf": {
     name: "OCR PDF",
@@ -239,6 +248,10 @@ function upsertStructuredData(data) {
 }
 
 function getToolKey(route) {
+  if (route.name === "compare-pdf") {
+    return "compare";
+  }
+
   if (route.name === "ocr-pdf") {
     return "ocr-pdf";
   }
@@ -255,6 +268,10 @@ function getToolKey(route) {
 }
 
 export function getPageUrl(route, toolKey = getToolKey(route)) {
+  if (route.name === "compare-pdf") {
+    return `${SITE_URL}/tools/compare`;
+  }
+
   if (route.name === "ocr-pdf") {
     return `${SITE_URL}/tools/ocr-pdf`;
   }
@@ -281,6 +298,10 @@ export function getSeoMetadata(route) {
 
   if (route.name === "ocr-pdf") {
     return PAGE_METADATA["ocr-pdf"];
+  }
+
+  if (route.name === "compare-pdf") {
+    return TOOL_METADATA.compare;
   }
 
   if (route.name === "conversion-tool") {

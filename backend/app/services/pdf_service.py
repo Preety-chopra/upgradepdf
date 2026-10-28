@@ -1,12 +1,14 @@
 import io
+import json
 import math
 import shutil
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, List, Set
 
 import fitz  # PyMuPDF
 import pytesseract
-from PIL import Image, ImageChops, ImageFilter, ImageOps
+from PIL import Image, ImageChops, ImageDraw, ImageFilter, ImageOps
 from pytesseract import Output
 
 
@@ -24,6 +26,12 @@ OPTIMIZATION_OPTION_NAMES = {
     "darken_text",
     "enhance_font_weight",
 }
+
+
+@dataclass(frozen=True)
+class PdfComparisonResult:
+    output_path: Path
+    summary: dict
 
 
 def _validate_pdf_path(path: Path) -> None:
@@ -339,6 +347,188 @@ def optimize_pdf(
             raise ValueError("Optimization produced an invalid PDF.")
 
     return output_path
+
+
+def _render_comparison_page(page: fitz.Page, dpi: int) -> Image.Image:
+    zoom = dpi / 72
+    pixmap = page.get_pixmap(matrix=fitz.Matrix(zoom, zoom), alpha=False)
+    return Image.frombytes("RGB", (pixmap.width, pixmap.height), pixmap.samples)
+
+
+def _fit_on_canvas(image: Image.Image, size: tuple[int, int]) -> Image.Image:
+    canvas = Image.new("RGB", size, "white")
+    copy = image.copy()
+    copy.thumbnail(size, Image.Resampling.LANCZOS)
+    left = (size[0] - copy.width) // 2
+    top = (size[1] - copy.height) // 2
+    canvas.paste(copy, (left, top))
+    return canvas
+
+
+def _comparison_report_image(
+    reference: Image.Image,
+    revised: Image.Image,
+    page_number: int,
+    status: str,
+) -> tuple[Image.Image, float]:
+    content_width = 760
+    content_height = max(1, round(content_width * max(
+        reference.height / max(reference.width, 1),
+        revised.height / max(revised.width, 1),
+    )))
+    content_height = min(content_height, 1080)
+    normalized_reference = _fit_on_canvas(reference, (content_width, content_height))
+    normalized_revised = _fit_on_canvas(revised, (content_width, content_height))
+
+    difference = ImageChops.difference(normalized_reference, normalized_revised)
+    mask = ImageOps.grayscale(difference).point(lambda value: 255 if value > 24 else 0)
+    mask = mask.filter(ImageFilter.MaxFilter(5))
+    changed_pixels = sum(1 for value in mask.getdata() if value)
+    change_percent = round(changed_pixels / (content_width * content_height) * 100, 2)
+    if changed_pixels and change_percent == 0:
+        change_percent = 0.01
+
+    highlighted_revised = normalized_revised.copy()
+    highlight = Image.new("RGB", highlighted_revised.size, (239, 68, 68))
+    highlighted_revised = Image.blend(highlighted_revised, highlight, 0.42)
+    normalized_revised.paste(highlighted_revised, mask=mask)
+
+    margin = 42
+    gutter = 32
+    header_height = 105
+    footer_height = 58
+    report = Image.new(
+        "RGB",
+        (content_width * 2 + gutter + margin * 2, content_height + header_height + footer_height),
+        "white",
+    )
+    draw = ImageDraw.Draw(report)
+    draw.text((margin, 24), f"PDF comparison - page {page_number}", fill=(15, 23, 42))
+    draw.text((margin, 56), "Original", fill=(71, 85, 105))
+    draw.text((margin + content_width + gutter, 56), "New (changes highlighted)", fill=(71, 85, 105))
+
+    top = header_height
+    report.paste(normalized_reference, (margin, top))
+    report.paste(normalized_revised, (margin + content_width + gutter, top))
+    draw.rectangle((margin - 1, top - 1, margin + content_width, top + content_height), outline=(203, 213, 225))
+    draw.rectangle(
+        (
+            margin + content_width + gutter - 1,
+            top - 1,
+            margin + content_width * 2 + gutter,
+            top + content_height,
+        ),
+        outline=(203, 213, 225),
+    )
+    footer = f"{status}"
+    if status == "Changed":
+        footer += f" - {change_percent}% of the rendered page differs"
+    draw.text((margin, top + content_height + 22), footer, fill=(190, 24, 93) if status != "Unchanged" else (22, 101, 52))
+    return report, change_percent
+
+
+def compare_pdfs(
+    reference_path: Path,
+    revised_path: Path,
+    output_path: Path,
+    *,
+    dpi: int = 120,
+) -> PdfComparisonResult:
+    """Create a side-by-side visual comparison PDF with changed areas highlighted."""
+
+    _validate_pdf_path(reference_path)
+    _validate_pdf_path(revised_path)
+    if dpi < 72 or dpi > 200:
+        raise ValueError("Comparison DPI must be between 72 and 200.")
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    report = fitz.open()
+    summary = {
+        "pages_compared": 0,
+        "changed_pages": 0,
+        "unchanged_pages": 0,
+        "added_pages": 0,
+        "removed_pages": 0,
+    }
+
+    try:
+        with fitz.open(reference_path) as reference_doc, fitz.open(revised_path) as revised_doc:
+            if reference_doc.needs_pass or revised_doc.needs_pass:
+                raise ValueError("Password-protected PDFs are not supported for comparison.")
+            if reference_doc.page_count < 1 or revised_doc.page_count < 1:
+                raise ValueError("Both PDFs must contain at least one page.")
+
+            total_pages = max(reference_doc.page_count, revised_doc.page_count)
+            summary["pages_compared"] = total_pages
+
+            for page_index in range(total_pages):
+                reference_image = (
+                    _render_comparison_page(reference_doc[page_index], dpi)
+                    if page_index < reference_doc.page_count
+                    else None
+                )
+                revised_image = (
+                    _render_comparison_page(revised_doc[page_index], dpi)
+                    if page_index < revised_doc.page_count
+                    else None
+                )
+
+                if reference_image is None:
+                    reference_image = Image.new("RGB", revised_image.size, "white")
+                    status = "Added page"
+                    summary["added_pages"] += 1
+                elif revised_image is None:
+                    revised_image = Image.new("RGB", reference_image.size, "white")
+                    status = "Removed page"
+                    summary["removed_pages"] += 1
+                else:
+                    status = "Changed"
+
+                report_image, change_percent = _comparison_report_image(
+                    reference_image,
+                    revised_image,
+                    page_index + 1,
+                    status,
+                )
+                if status == "Changed":
+                    if change_percent == 0:
+                        status = "Unchanged"
+                        summary["unchanged_pages"] += 1
+                        report_image, _ = _comparison_report_image(
+                            reference_image,
+                            revised_image,
+                            page_index + 1,
+                            status,
+                        )
+                    else:
+                        summary["changed_pages"] += 1
+
+                stream = io.BytesIO()
+                report_image.save(stream, format="JPEG", quality=88, optimize=True)
+                pdf_page = report.new_page(
+                    width=report_image.width * 0.5,
+                    height=report_image.height * 0.5,
+                )
+                pdf_page.insert_image(pdf_page.rect, stream=stream.getvalue())
+
+        report.set_metadata({
+            "title": "PDF comparison report",
+            "subject": "Side-by-side visual differences between two PDF files",
+            "creator": "UpgradePDF",
+        })
+        report.save(output_path, garbage=4, deflate=True, use_objstms=1)
+        (output_path.parent / "comparison.json").write_text(
+            json.dumps(summary, indent=2),
+            encoding="utf-8",
+        )
+    finally:
+        report.close()
+
+    with fitz.open(output_path) as generated:
+        if generated.page_count != summary["pages_compared"]:
+            raise ValueError("Comparison produced an invalid report.")
+
+    return PdfComparisonResult(output_path=output_path, summary=summary)
 
 
 def _parse_pages(pages: str, total_pages: int) -> List[int]:

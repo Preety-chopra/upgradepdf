@@ -4,6 +4,7 @@ import { applySeoMetadata } from "../seo";
 
 const HomeView = () => import("../views/HomeView.vue");
 const PdfToolView = () => import("../views/PdfToolView.vue");
+const ComparePdfView = () => import("../views/ComparePdfView.vue");
 const ConversionTools = () => import("../pages/ConversionTools.vue");
 const OcrTools = () => import("../pages/OcrTools.vue");
 
@@ -12,6 +13,12 @@ const routes = [
     path: "/",
     name: "home",
     component: HomeView
+  },
+
+  {
+    path: "/tools/compare",
+    name: "compare-pdf",
+    component: ComparePdfView
   },
 
   {

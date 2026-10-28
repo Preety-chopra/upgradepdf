@@ -23,6 +23,9 @@ if engine.dialect.name == "postgresql":
         connection.execute(
             text("ALTER TYPE joboperation ADD VALUE IF NOT EXISTS 'OPTIMIZE'")
         )
+        connection.execute(
+            text("ALTER TYPE joboperation ADD VALUE IF NOT EXISTS 'COMPARE'")
+        )
 
 
 app = FastAPI(

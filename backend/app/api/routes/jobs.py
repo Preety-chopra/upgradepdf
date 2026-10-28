@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -52,6 +53,14 @@ def get_job_status(
                 ),
                 1,
             )
+
+    if job.operation == JobOperation.COMPARE and job.status.value == "completed":
+        summary_path = Path(settings.OUTPUT_DIR) / job.id / "comparison.json"
+        if summary_path.exists():
+            try:
+                response.comparison = json.loads(summary_path.read_text(encoding="utf-8"))
+            except (OSError, ValueError):
+                response.comparison = None
 
     return response
 

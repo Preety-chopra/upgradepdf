@@ -24,6 +24,7 @@ class JobOperation(str, Enum):
     COMPRESS = "compress"
     OPTIMIZE = "optimize"
     REORDER_PAGES = "reorder_pages"
+    COMPARE = "compare"
 
 
 class Job(Base):

@@ -8,6 +8,7 @@ from app.services.job_service import (
     purge_expired_jobs,
 )
 from app.services.pdf_service import (
+    compare_pdfs,
     compress_pdf,
     delete_pages,
     extract_pages,
@@ -17,6 +18,33 @@ from app.services.pdf_service import (
     rotate_pdf,
 )
 from app.workers.celery_app import celery_app
+
+
+@celery_app.task(name="compare_pdf_task")
+def compare_pdf_task(job_id: str):
+    try:
+        mark_job_processing(job_id)
+
+        upload_dir = Path(settings.UPLOAD_DIR) / job_id
+        output_dir = Path(settings.OUTPUT_DIR) / job_id
+        result = compare_pdfs(
+            reference_path=upload_dir / "input_1.pdf",
+            revised_path=upload_dir / "input_2.pdf",
+            output_path=output_dir / "comparison.pdf",
+        )
+
+        mark_job_completed(job_id=job_id, output_filename=result.output_path.name)
+        return {
+            "job_id": job_id,
+            "status": "completed",
+            "operation": "compare",
+            "filename": result.output_path.name,
+            "comparison": result.summary,
+            "download_url": f"/api/files/download/{job_id}/{result.output_path.name}",
+        }
+    except Exception as exc:
+        mark_job_failed(job_id=job_id, error_message=str(exc))
+        raise
 
 
 @celery_app.task(name="compress_pdf_task")
