@@ -71,6 +71,26 @@ docker compose pull
 docker compose up -d --no-build
 ```
 
+## Google Analytics
+
+The shared `frontend/index.html` template installs Google tag
+`G-GYKQ5QGVQD` once per page. The production build carries the tag into every
+generated route page; rebuild and deploy the frontend for changes to take effect.
+
+In Google Analytics, select this website's web stream under **Admin > Data
+streams**. Enable **Enhanced measurement > Page views > Show advanced settings >
+Page changes based on browser history events** so navigation between Vue tools
+is recorded. Page views use Google's automatic measurement; do not add a second
+tag or manual router page-view events.
+
+After deployment, visit the homepage and navigate to a few tools. Check the
+**Realtime** report for activity, and use **DebugView** with debug mode enabled
+to confirm each navigation produces one `page_view` with the expected page URL.
+Initial collection can take up to 30 minutes. Analytics collects visits from the
+time the tag is installed; it does not backfill earlier visits.
+
+Setup reference: https://developers.google.com/analytics/devguides/collection/ga4/single-page-applications
+
 ## Logs and health
 
 ```bash
